@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Код подтверждения</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f6f6f6; padding: 20px;">
+<div style="max-width: 600px; margin: 0 auto; background: #ffffff; padding: 24px; border-radius: 8px;">
+
+    <h2 style="color: #333;">Подтверждение email</h2>
+
+    <p style="color: #555;">
+        Для подтверждения вашего email введите следующий код:
+    </p>
+
+    <div style="text-align: center; margin: 30px 0;">
+        <span style="
+            display: inline-block;
+            font-size: 32px;
+            letter-spacing: 6px;
+            font-weight: bold;
+            color: #4F46E5;
+        "
+              th:text="${code}">
+            123456
+        </span>
+    </div>
+
+    <p style="color: #555;">
+        Код действителен ограниченное время.
+    </p>
+
+    <hr style="margin: 30px 0;">
+
+    <p style="font-size: 12px; color: #888;">
+        Если вы не запрашивали этот код, просто проигнорируйте письмо.
+    </p>
+
+</div>
+</body>
+</html>

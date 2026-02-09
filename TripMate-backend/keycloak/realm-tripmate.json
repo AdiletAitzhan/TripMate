@@ -1,0 +1,22 @@
+{
+  "realm": "tripmate",
+  "enabled": true,
+
+  "clients": [
+    {
+      "clientId": "user-service",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "secret": "user-service-secret",
+      "directAccessGrantsEnabled": true
+    },
+    {
+      "clientId": "apigw",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": ["*"]
+    }
+  ]
+}

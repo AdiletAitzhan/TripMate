@@ -1,0 +1,19 @@
+# Env and secrets
+.env
+.env.*
+!.env.example
+
+node_modules/
+dist/
+target/
+
+.idea/
+.vscode/
+*.iml
+
+.DS_Store
+Thumbs.db
+
+*.log
+*.tmp
+.cache/

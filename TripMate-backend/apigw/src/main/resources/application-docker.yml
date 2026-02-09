@@ -1,0 +1,48 @@
+server:
+  port: 8083
+
+
+tripmate:
+  keycloak:
+    realm: tripmate
+    client-id: user-service
+    client-secret: user-service-secret
+    baseUrl: http://keycloak:8080
+    admin-username: admin
+    admin-password: admin
+
+
+spring:
+  security:
+    oauth2:
+      resource-server:
+        jwt:
+          issuer-uri: ${tripmate.keycloak.baseUrl}/realms/${tripmate.keycloak.realm}
+
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: notification
+              uri: lb://NOTIFICATION
+              predicates:
+                - Path=/api/notification/**
+            - id: user-service
+              uri: lb://USER-SERVICE
+              predicates:
+                - Path=/api/auth/**
+            - id: user-users
+              uri: lb://USER-SERVICE
+              predicates:
+                - Path=/api/users/**
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    prefer-ip-address: true
