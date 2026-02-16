@@ -4,6 +4,7 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { PrivateRoute } from "./components/PrivateRoute";
 import { Home } from "./pages/Home";
 import { Profile } from "./pages/Profile";
+import { Requests } from "./pages/Requests";
 import { Login } from "./pages/Login";
 import { SignUpOptions } from "./pages/SignUpOptions";
 import { ManualRegistration } from "./pages/ManualRegistration";
@@ -32,6 +33,14 @@ function App() {
               element={
                 <PrivateRoute>
                   <Profile />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/requests"
+              element={
+                <PrivateRoute>
+                  <Requests />
                 </PrivateRoute>
               }
             />

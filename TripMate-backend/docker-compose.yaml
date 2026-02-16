@@ -149,7 +149,6 @@ services:
     build:
       context: .
       dockerfile: notification/Dockerfile
-
     container_name: notification
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -157,6 +156,23 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD}
     ports:
       - "8081:8081"
+    networks:
+      - tripmate-network
+    depends_on:
+      - postgres-app
+      - keycloak
+      - eureka-server
+
+  trip-service:
+    build:
+      context: .
+      dockerfile: trip-service/Dockerfile
+
+    container_name: trip-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8085:8085"
     networks:
       - tripmate-network
     depends_on:

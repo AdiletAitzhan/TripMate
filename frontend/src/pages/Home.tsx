@@ -234,7 +234,7 @@ export function Home() {
           <h2 className="cta-title">Ready to start your adventure?</h2>
           <button
             className="btn btn-primary cta-button"
-            onClick={() => alert("Coming soon! 🚀")}
+            onClick={() => navigate("/requests")}
           >
             Create New Trip
           </button>

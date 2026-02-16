@@ -1,7 +1,9 @@
 server:
-  port: 8082
+  port: 8085
 
 spring:
+  application:
+    name: trip-service
   datasource:
     url: jdbc:postgresql://localhost:5434/appdb
     username: app
@@ -15,24 +17,11 @@ spring:
   jackson:
     serialization:
       write-dates-as-timestamps: false
-  application:
-    name: user-service
 
 tripmate:
   keycloak:
     realm: tripmate
-    client-id: user-service
-    client-secret: user-service-secret
     baseUrl: http://localhost:8080
-    admin-username: admin
-    admin-password: admin
-  minio:
-    endpoint: http://localhost:9000
-    access-key: minio
-    secret-key: minio123
-    bucket: tripmate
-    public-base-url: ${MINIO_PUBLIC_URL:http://localhost:9000}
-
 
 spring.security.oauth2.resourceserver.jwt:
   issuer-uri: ${tripmate.keycloak.baseUrl}/realms/${tripmate.keycloak.realm}
@@ -52,8 +41,3 @@ springdoc:
   swagger-ui:
     csrf:
       enabled: false
-#    url: /swagger-ui.html
-
-
-google:
-  client-id: ${GOOGLE_CLIENT_ID}

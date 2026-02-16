@@ -38,6 +38,10 @@ spring:
               uri: lb://USER-SERVICE
               predicates:
                 - Path=/api/users/**
+            - id: trip-service
+              uri: lb://TRIP-SERVICE
+              predicates:
+                - Path=/api/trip-requests/**
 eureka:
   client:
     service-url:

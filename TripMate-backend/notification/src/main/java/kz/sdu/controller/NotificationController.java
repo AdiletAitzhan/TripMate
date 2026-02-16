@@ -1,5 +1,8 @@
 package kz.sdu.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.mail.MessagingException;
 import kz.sdu.clients.notification.NotificationEmailDto;
 import kz.sdu.clients.notification.VerificationCodePayload;
@@ -12,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Notification", description = "Отправка email-уведомлений (внутренний API для других сервисов)")
 @Slf4j
 @RestController
 @RequestMapping("/api/notification")
@@ -20,25 +24,22 @@ public class NotificationController {
 
     private final EmailService emailService;
 
-    /**
-     * Sends a welcome email to the given address.
-     */
+    @Operation(summary = "Приветственное письмо", description = "Отправка приветственного письма на указанный email после регистрации.")
+    @ApiResponse(responseCode = "200", description = "Письмо отправлено")
     @PostMapping("/welcome-message")
     public void sendWelcomeMessage(@RequestBody NotificationEmailDto notificationEmailDto) throws MessagingException {
         emailService.sendWelcomeMessage(notificationEmailDto.email());
     }
 
-    /**
-     * Sends a verification code email (registration / resend).
-     */
+    @Operation(summary = "Код верификации", description = "Отправка письма с кодом верификации (регистрация или повторная отправка).")
+    @ApiResponse(responseCode = "200", description = "Письмо отправлено")
     @PostMapping("/verification-code")
     public void sendVerificationCode(@RequestBody VerificationCodePayload payload) throws MessagingException {
         emailService.sendVerificationCode(payload.email(), payload.code());
     }
 
-    /**
-     * Sends a password reset link with the already generated token.
-     */
+    @Operation(summary = "Ссылка сброса пароля", description = "Отправка письма со ссылкой для сброса пароля (токен генерируется вызывающим сервисом).")
+    @ApiResponse(responseCode = "200", description = "Письмо отправлено")
     @PostMapping("/password-reset-link")
     public void sendPasswordResetLink(@RequestBody PasswordResetLinkPayload payload) throws MessagingException {
         emailService.sendPasswordResetLink(payload.email(), payload.token());
