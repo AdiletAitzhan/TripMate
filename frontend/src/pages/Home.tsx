@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Logo } from "../components/Logo";
-import { SearchBar } from "../components/SearchBar";
 import { NotificationButton } from "../components/NotificationButton";
 import { UserAvatar } from "../components/UserAvatar";
 import { FeatureCard } from "../components/FeatureCard";
@@ -192,8 +191,6 @@ export function Home() {
           </button>
           <Logo />
         </div>
-
-        <SearchBar />
 
         <div className="app-header-right">
           <ThemeToggle />

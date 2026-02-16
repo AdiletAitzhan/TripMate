@@ -1108,3 +1108,18 @@ header .logo {
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+/* Profile photo hover overlay */
+.profile-photo-btn .profile-photo-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: profilePhotoOverlayFadeIn 0.2s ease;
+}
+@keyframes profilePhotoOverlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

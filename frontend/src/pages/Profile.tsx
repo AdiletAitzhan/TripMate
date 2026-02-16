@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Logo } from "../components/Logo";
-import { SearchBar } from "../components/SearchBar";
 import { NotificationButton } from "../components/NotificationButton";
 import { UserAvatar } from "../components/UserAvatar";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { ImagePlus } from "lucide-react";
 import {
   IconCatalog,
   IconProfile,
@@ -16,7 +16,14 @@ import {
 } from "../components/icons";
 import { useAuth } from "../context/useAuth";
 import { useUsersApi } from "../hooks/useUsersApi";
+import { useTripRequestsApi } from "../hooks/useTripRequestsApi";
+import { CreateTripRequestModal } from "../components/CreateTripRequestModal";
 import type { ProfileData } from "../types/profile";
+import type {
+  CreateTripRequestRequest,
+  TripRequestShortResponse,
+  UpdateTripRequestRequest,
+} from "../types/tripRequest";
 
 const COUNTRIES = [
   "Kazakhstan",
@@ -29,6 +36,7 @@ const COUNTRIES = [
 ];
 const LANGUAGES = ["English", "Russian", "Kazakh"];
 const TIMEZONES = ["UTC+05:00", "UTC+06:00", "UTC+03:00", "UTC+00:00"];
+const CURRENCIES = ["USD", "EUR", "KZT", "RUB"];
 const PREFERRED_GENDERS = ["", "MALE", "FEMALE", "OTHER"];
 const PROFILE_GENDER_KEY = "tripmate_profile_gender";
 const PROFILE_LANGUAGE_KEY = "tripmate_profile_language";
@@ -44,6 +52,27 @@ function nicknameFromEmail(email: string | undefined) {
 function photoUrlForBrowser(url: string | undefined): string | undefined {
   if (!url) return undefined;
   return url.replace(/http:\/\/minio:9000/, "http://localhost:9000");
+}
+
+function formatRequestDate(s: string | undefined): string {
+  if (!s) return "—";
+  const d = new Date(s);
+  return d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatRequestDestination(dest: TripRequestShortResponse["destination"]): string {
+  const parts = [dest?.city, dest?.country].filter(Boolean);
+  return parts.length ? parts.join(", ") : "—";
+}
+
+function formatRequestBudget(budget: TripRequestShortResponse["budget"]): string {
+  if (!budget?.amount) return "—";
+  const curr = budget.currency ?? "USD";
+  return `${budget.amount} ${curr}`;
 }
 
 export function Profile() {
@@ -63,6 +92,8 @@ export function Profile() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const photoHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showPhotoHover, setShowPhotoHover] = useState(false);
 
   const [fullName, setFullName] = useState("");
   const [nickName, setNickName] = useState("");
@@ -78,6 +109,17 @@ export function Profile() {
   const [preferredGender, setPreferredGender] = useState("");
   const [budgetMin, setBudgetMin] = useState<number | "">("");
   const [budgetMax, setBudgetMax] = useState<number | "">("");
+  const [budgetCurrency, setBudgetCurrency] = useState("USD");
+
+  const { getMyRequests, createRequest, updateRequest, deleteRequest } =
+    useTripRequestsApi();
+  const [myRequests, setMyRequests] = useState<TripRequestShortResponse[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+  const [requestError, setRequestError] = useState<string | null>(null);
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [editingRequest, setEditingRequest] =
+    useState<TripRequestShortResponse | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const displayName =
     user?.name ?? profile?.fullName ?? user?.email ?? "Traveler";
@@ -134,6 +176,79 @@ export function Profile() {
     setIsSidebarOpen(false);
   };
 
+  const handlePhotoMouseEnter = () => {
+    photoHoverTimeoutRef.current = setTimeout(() => setShowPhotoHover(true), 500);
+  };
+  const handlePhotoMouseLeave = () => {
+    if (photoHoverTimeoutRef.current) {
+      clearTimeout(photoHoverTimeoutRef.current);
+      photoHoverTimeoutRef.current = null;
+    }
+    setShowPhotoHover(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (photoHoverTimeoutRef.current) clearTimeout(photoHoverTimeoutRef.current);
+    };
+  }, []);
+
+  const loadMyRequests = () => {
+    if (!isReady || (!accessToken && !refreshToken)) return;
+    setLoadingRequests(true);
+    setRequestError(null);
+    getMyRequests({ page: 1, limit: 50 })
+      .then((res) => {
+        const data = res.data;
+        setMyRequests(data?.requests ?? []);
+      })
+      .catch((e) => setRequestError(e?.message ?? "Failed to load requests"))
+      .finally(() => setLoadingRequests(false));
+  };
+
+  useEffect(() => {
+    if (!isReady || (!accessToken && !refreshToken)) return;
+    loadMyRequests();
+  }, [isReady, accessToken, refreshToken]);
+
+  const handleCreateRequest = async (body: CreateTripRequestRequest) => {
+    await createRequest(body);
+    setRequestModalOpen(false);
+    setEditingRequest(null);
+    loadMyRequests();
+  };
+
+  const handleUpdateRequest = async (
+    requestId: string,
+    body: UpdateTripRequestRequest
+  ) => {
+    await updateRequest(requestId, body);
+    setRequestModalOpen(false);
+    setEditingRequest(null);
+    loadMyRequests();
+  };
+
+  const handleDeleteRequest = async (id: string) => {
+    if (!confirm("Удалить этот реквест?")) return;
+    setDeletingId(id);
+    try {
+      await deleteRequest(id);
+      loadMyRequests();
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const openCreateRequestModal = () => {
+    setEditingRequest(null);
+    setRequestModalOpen(true);
+  };
+
+  const openEditRequestModal = (r: TripRequestShortResponse) => {
+    setEditingRequest(r);
+    setRequestModalOpen(true);
+  };
+
   useEffect(() => {
     if (!isReady || (!accessToken && !refreshToken)) {
       setLoading(false);
@@ -157,14 +272,15 @@ export function Profile() {
           const tz = sessionStorage.getItem(PROFILE_TIMEZONE_KEY);
           setTimeZone(tz && TIMEZONES.includes(tz) ? tz : "UTC+05:00");
           const prefs = data.preferences;
+          setInterests(data.interests ?? []);
+          setInterestsInput((data.interests ?? []).join(", "));
           if (prefs) {
-            setInterests(prefs.interests ?? []);
-            setInterestsInput((prefs.interests ?? []).join(", "));
             setMinAge(prefs.minAge ?? "");
             setMaxAge(prefs.maxAge ?? "");
             setPreferredGender(prefs.preferredGender ?? "");
             setBudgetMin(prefs.budgetRange?.min ?? "");
             setBudgetMax(prefs.budgetRange?.max ?? "");
+            setBudgetCurrency(prefs.budgetRange?.currency ?? "USD");
           }
         }
       })
@@ -209,14 +325,15 @@ export function Profile() {
         const tz = sessionStorage.getItem(PROFILE_TIMEZONE_KEY);
         setTimeZone(tz && TIMEZONES.includes(tz) ? tz : "UTC+05:00");
         const prefs = data.preferences;
+        setInterests(data.interests ?? []);
+        setInterestsInput((data.interests ?? []).join(", "));
         if (prefs) {
-          setInterests(prefs.interests ?? []);
-          setInterestsInput((prefs.interests ?? []).join(", "));
           setMinAge(prefs.minAge ?? "");
           setMaxAge(prefs.maxAge ?? "");
           setPreferredGender(prefs.preferredGender ?? "");
           setBudgetMin(prefs.budgetRange?.min ?? "");
           setBudgetMax(prefs.budgetRange?.max ?? "");
+          setBudgetCurrency(prefs.budgetRange?.currency ?? "USD");
         }
       }
       setSavedMessage(true);
@@ -267,6 +384,7 @@ export function Profile() {
             ? {
                 min: budgetMin === "" ? undefined : Number(budgetMin),
                 max: budgetMax === "" ? undefined : Number(budgetMax),
+                currency: budgetCurrency,
               }
             : undefined,
       });
@@ -275,14 +393,15 @@ export function Profile() {
       if (data) {
         setProfile(data);
         const prefs = data.preferences;
+        setInterests(data.interests ?? []);
+        setInterestsInput((data.interests ?? []).join(", "));
         if (prefs) {
-          setInterests(prefs.interests ?? []);
-          setInterestsInput((prefs.interests ?? []).join(", "));
           setMinAge(prefs.minAge ?? "");
           setMaxAge(prefs.maxAge ?? "");
           setPreferredGender(prefs.preferredGender ?? "");
           setBudgetMin(prefs.budgetRange?.min ?? "");
           setBudgetMax(prefs.budgetRange?.max ?? "");
+          setBudgetCurrency(prefs.budgetRange?.currency ?? "USD");
         }
       }
       setEditingPreferences(false);
@@ -400,8 +519,6 @@ export function Profile() {
           </button>
           <Logo />
         </div>
-
-        <SearchBar />
 
         <div className="app-header-right">
           <ThemeToggle />
@@ -524,24 +641,70 @@ export function Profile() {
             >
               <button
                 type="button"
+                className="profile-photo-btn"
                 onClick={() => fileInputRef.current?.click()}
+                onMouseEnter={handlePhotoMouseEnter}
+                onMouseLeave={handlePhotoMouseLeave}
                 disabled={uploadingPhoto}
+                title={photoDisplayUrl ? "Изменить фото профиля" : "Добавить фото"}
+                aria-label={photoDisplayUrl ? "Change profile photo" : "Upload profile photo"}
                 style={{
                   width: 96,
                   height: 96,
                   borderRadius: "50%",
-                  border: "2px solid var(--border)",
+                  border: "none",
                   overflow: "hidden",
                   padding: 0,
-                  cursor: "pointer",
+                  cursor: uploadingPhoto ? "wait" : "pointer",
                   flexShrink: 0,
+                  position: "relative",
                   background: photoDisplayUrl
                     ? `center/cover url(${photoDisplayUrl})`
                     : "var(--primary-light)",
                 }}
               >
-                {!photoDisplayUrl && (
-                  <span style={{ fontSize: "2rem" }}>👤</span>
+                {!photoDisplayUrl ? (
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "100%",
+                      height: "100%",
+                      color: "var(--accent)",
+                    }}
+                  >
+                    <ImagePlus size={40} strokeWidth={1.5} />
+                  </span>
+                ) : (
+                  showPhotoHover && (
+                    <span className="profile-photo-overlay">
+                      <span
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 6,
+                          color: "white",
+                        }}
+                      >
+                        <ImagePlus size={36} strokeWidth={1.5} />
+                        <span
+                          style={{
+                            fontSize: "0.75rem",
+                            fontWeight: 500,
+                            textAlign: "center",
+                            padding: "4px 8px",
+                            background: "rgba(0,0,0,0.5)",
+                            borderRadius: 6,
+                          }}
+                        >
+                          Изменить фото профиля
+                        </span>
+                      </span>
+                    </span>
+                  )
                 )}
               </button>
               <div style={{ flex: 1, minWidth: 200 }}>
@@ -875,10 +1038,185 @@ export function Profile() {
                     }
                   />
                 </div>
+                <div className="input-wrap">
+                  <label>Currency</label>
+                  <select
+                    className="input-field"
+                    value={budgetCurrency}
+                    onChange={(e) => setBudgetCurrency(e.target.value)}
+                    disabled={!editingPreferences}
+                    style={
+                      !editingPreferences
+                        ? { background: "var(--bg)", cursor: "default" }
+                        : undefined
+                    }
+                  >
+                    {CURRENCIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </section>
           </div>
         </div>
+
+        <section
+          style={{
+            marginTop: 32,
+            padding: 24,
+            background: "var(--card-bg)",
+            borderRadius: "var(--radius-card)",
+            border: "1px solid var(--border)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 16,
+              flexWrap: "wrap",
+              gap: 12,
+            }}
+          >
+            <h3
+              style={{
+                fontSize: "1.125rem",
+                fontWeight: 600,
+                margin: 0,
+                color: "var(--text)",
+              }}
+            >
+              My requests
+            </h3>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ width: "auto", padding: "8px 20px" }}
+              onClick={openCreateRequestModal}
+            >
+              Create request
+            </button>
+          </div>
+          {requestError && (
+            <p
+              style={{
+                color: "var(--status-error)",
+                fontSize: "0.9375rem",
+                marginBottom: 16,
+              }}
+              role="alert"
+            >
+              {requestError}
+            </p>
+          )}
+          {loadingRequests ? (
+            <p style={{ color: "var(--text-muted)" }}>Загрузка…</p>
+          ) : myRequests.length === 0 ? (
+            <p style={{ color: "var(--text-muted)", margin: 0 }}>
+              You have no requests yet. Create your first one!
+            </p>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                gap: 16,
+              }}
+            >
+              {myRequests.map((r) => (
+                <div
+                  key={r.id}
+                  className="card-premium"
+                  style={{
+                    padding: 20,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                  }}
+                >
+                  <h4
+                    style={{
+                      fontSize: "1rem",
+                      fontWeight: 600,
+                      color: "var(--text)",
+                      margin: "0 0 4px",
+                    }}
+                  >
+                    {formatRequestDestination(r.destination)}
+                  </h4>
+                  <p
+                    style={{
+                      fontSize: "0.875rem",
+                      color: "var(--text-muted)",
+                      margin: 0,
+                    }}
+                  >
+                    {formatRequestDate(r.startDate)} — {formatRequestDate(r.endDate)}
+                  </p>
+                  <p
+                    style={{
+                      fontSize: "0.875rem",
+                      color: "var(--text-muted)",
+                      margin: 0,
+                    }}
+                  >
+                    Бюджет: {formatRequestBudget(r.budget)}
+                  </p>
+                  {r.status && (
+                    <span
+                      style={{
+                        display: "inline-block",
+                        padding: "4px 10px",
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        borderRadius: 999,
+                        background: "var(--accent-light)",
+                        color: "var(--accent)",
+                        width: "fit-content",
+                      }}
+                    >
+                      {r.status}
+                    </span>
+                  )}
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      marginTop: 12,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => openEditRequestModal(r)}
+                      style={{ flex: 1, padding: "8px 16px" }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => handleDeleteRequest(r.id)}
+                      disabled={deletingId === r.id}
+                      style={{
+                        flex: 1,
+                        padding: "8px 16px",
+                        color: "var(--status-error)",
+                        borderColor: "var(--status-error)",
+                      }}
+                    >
+                      {deletingId === r.id ? "Deleting…" : "Delete"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </main>
 
       {/* Footer */}
@@ -894,6 +1232,18 @@ export function Profile() {
         onChange={handlePhotoChange}
         style={{ display: "none" }}
       />
+
+      {requestModalOpen && (
+        <CreateTripRequestModal
+          onClose={() => {
+            setRequestModalOpen(false);
+            setEditingRequest(null);
+          }}
+          onCreate={handleCreateRequest}
+          onUpdate={editingRequest ? handleUpdateRequest : undefined}
+          editing={editingRequest}
+        />
+      )}
     </div>
   );
 }

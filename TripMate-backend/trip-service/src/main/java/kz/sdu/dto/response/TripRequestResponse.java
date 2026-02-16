@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -35,5 +36,5 @@ public class TripRequestResponse {
 
     private Boolean notifyOnMatch;
 
-    private OffsetDateTime createdAt;
+    private LocalDateTime createdAt;
 }

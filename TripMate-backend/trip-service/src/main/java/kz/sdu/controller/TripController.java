@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 
+import java.util.List;
 import java.util.UUID;
 
 @Tag(name = "Trip Requests", description = "Заявки на поездки (создание, просмотр, обновление, удаление)")
@@ -60,9 +61,17 @@ public class TripController {
                 .body(ApiResponseDto.success(response));
     }
 
+
+    @GetMapping
+    public ResponseEntity<ApiResponseDto<List<TripRequestResponse>>> getAllTripRequests() {
+        return ResponseEntity.ok(ApiResponseDto.success(tripRequestService.getAllTripRequest()));
+    }
+
+
     @Operation(summary = "Мои заявки на поездки", description = "3.2 Список заявок текущего пользователя с пагинацией и фильтром по статусу.")
     @ApiResponse(responseCode = "200", description = "Страница заявок")
     @GetMapping("/me")
+
     public ResponseEntity<ApiResponseDto<TripRequestPageResponse>> getMyTripRequests(
             Authentication authentication,
             @Parameter(description = "Фильтр по статусу") @RequestParam(value = "status", required = false) String status,

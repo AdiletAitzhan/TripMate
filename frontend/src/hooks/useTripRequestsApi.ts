@@ -24,6 +24,13 @@ function extractError(data: unknown): string {
 export function useTripRequestsApi() {
   const fetchWithAuth = useFetchWithAuth()
 
+  const getAllRequests = useCallback(async () => {
+    const res = await fetchWithAuth(apiUrl("/api/trip-requests"))
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(extractError(data))
+    return data as { success: boolean; data: TripRequestResponse[] }
+  }, [fetchWithAuth])
+
   const getMyRequests = useCallback(
     async (params?: {
       status?: string
@@ -107,6 +114,7 @@ export function useTripRequestsApi() {
   )
 
   return {
+    getAllRequests,
     getMyRequests,
     createRequest,
     getById,

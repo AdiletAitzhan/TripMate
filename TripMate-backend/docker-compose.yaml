@@ -94,91 +94,91 @@ services:
       - tripmate-network
 
   eureka-server:
-    build:
-      context: .
-      dockerfile: eureka-server/Dockerfile
-    container_name: eureka-server
-    ports:
-      - "8761:8761"
-    networks:
-      - tripmate-network
+   build:
+     context: .
+     dockerfile: eureka-server/Dockerfile
+   container_name: eureka-server
+   ports:
+     - "8761:8761"
+   networks:
+     - tripmate-network
 
   apigw:
-    build:
-      context: .
-      dockerfile: apigw/Dockerfile
+   build:
+     context: .
+     dockerfile: apigw/Dockerfile
 
-    container_name: apigw
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/tripmate
-      KEYCLOAK_CLIENT_SECRET: user-service-secret
-    ports:
-      - "8083:8083"
-    networks:
-      - tripmate-network
-    depends_on:
-      - keycloak
-      - eureka-server
+   container_name: apigw
+   environment:
+     SPRING_PROFILES_ACTIVE: docker
+     SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/tripmate
+     KEYCLOAK_CLIENT_SECRET: user-service-secret
+   ports:
+     - "8083:8083"
+   networks:
+     - tripmate-network
+   depends_on:
+     - keycloak
+     - eureka-server
 
   user-service:
-    build:
-      context: .
-      dockerfile: user-service/Dockerfile
+   build:
+     context: .
+     dockerfile: user-service/Dockerfile
 
-    container_name: user-service
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-app:5432/appdb
-      SPRING_DATASOURCE_USERNAME: app
-      SPRING_DATASOURCE_PASSWORD: app
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      KEYCLOAK_REALM: tripmate
-      KEYCLOAK_CLIENT_ID: user-service
-      KEYCLOAK_CLIENT_SECRET: user-service-secret
-      KEYCLOAK_URL: http://keycloak:8080
-    ports:
-      - "8082:8082"
-    networks:
-      - tripmate-network
-    depends_on:
-      - postgres-app
-      - keycloak
-      - eureka-server
+   container_name: user-service
+   environment:
+     SPRING_PROFILES_ACTIVE: docker
+     SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-app:5432/appdb
+     SPRING_DATASOURCE_USERNAME: app
+     SPRING_DATASOURCE_PASSWORD: app
+     GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+     KEYCLOAK_REALM: tripmate
+     KEYCLOAK_CLIENT_ID: user-service
+     KEYCLOAK_CLIENT_SECRET: user-service-secret
+     KEYCLOAK_URL: http://keycloak:8080
+   ports:
+     - "8082:8082"
+   networks:
+     - tripmate-network
+   depends_on:
+     - postgres-app
+     - keycloak
+     - eureka-server
   notification:
-    build:
-      context: .
-      dockerfile: notification/Dockerfile
-    container_name: notification
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      MAIL_USERNAME: ${MAIL_USERNAME}
-      MAIL_PASSWORD: ${MAIL_PASSWORD}
-    ports:
-      - "8081:8081"
-    networks:
-      - tripmate-network
-    depends_on:
-      - postgres-app
-      - keycloak
-      - eureka-server
+   build:
+     context: .
+     dockerfile: notification/Dockerfile
+   container_name: notification
+   environment:
+     SPRING_PROFILES_ACTIVE: docker
+     MAIL_USERNAME: ${MAIL_USERNAME}
+     MAIL_PASSWORD: ${MAIL_PASSWORD}
+   ports:
+     - "8081:8081"
+   networks:
+     - tripmate-network
+   depends_on:
+     - postgres-app
+     - keycloak
+     - eureka-server
 
   trip-service:
-    build:
-      context: .
-      dockerfile: trip-service/Dockerfile
+   build:
+     context: .
+     dockerfile: trip-service/Dockerfile
 
-    container_name: trip-service
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-    ports:
-      - "8085:8085"
-    networks:
-      - tripmate-network
-    depends_on:
-      - postgres-app
-      - keycloak
-      - eureka-server
+   container_name: trip-service
+   environment:
+     SPRING_PROFILES_ACTIVE: docker
+   ports:
+     - "8085:8085"
+   networks:
+     - tripmate-network
+   depends_on:
+     - postgres-app
+     - keycloak
+     - eureka-server
 
 volumes:
   keycloak_db:

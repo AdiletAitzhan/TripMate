@@ -1,11 +1,9 @@
 import { useEffect, useState, useRef, useMemo } from "react"
-import { useNavigate, useLocation, Link, useSearchParams } from "react-router-dom"
+import { useNavigate, useLocation, Link } from "react-router-dom"
 import { Logo } from "../components/Logo"
-import { SearchBar } from "../components/SearchBar"
 import { NotificationButton } from "../components/NotificationButton"
 import { UserAvatar } from "../components/UserAvatar"
 import { ThemeToggle } from "../components/ThemeToggle"
-import { CreateTripRequestModal } from "../components/CreateTripRequestModal"
 import {
   IconCatalog,
   IconProfile,
@@ -18,11 +16,7 @@ import {
 import { useAuth } from "../context/useAuth"
 import { useUsersApi } from "../hooks/useUsersApi"
 import { useTripRequestsApi } from "../hooks/useTripRequestsApi"
-import type {
-  CreateTripRequestRequest,
-  TripRequestShortResponse,
-  UpdateTripRequestRequest,
-} from "../types/tripRequest"
+import type { TripRequestResponse } from "../types/tripRequest"
 
 function photoUrlForBrowser(url: string | undefined): string | undefined {
   if (!url) return undefined
@@ -39,12 +33,12 @@ function formatDate(s: string | undefined): string {
   })
 }
 
-function formatDestination(dest: TripRequestShortResponse["destination"]): string {
+function formatDestination(dest: TripRequestResponse["destination"]): string {
   const parts = [dest?.city, dest?.country].filter(Boolean)
   return parts.length ? parts.join(", ") : "—"
 }
 
-function formatBudget(budget: TripRequestShortResponse["budget"]): string {
+function formatBudget(budget: TripRequestResponse["budget"]): string {
   if (!budget?.amount) return "—"
   const curr = budget.currency ?? "USD"
   return `${budget.amount} ${curr}`
@@ -55,30 +49,13 @@ export function Requests() {
   const location = useLocation()
   const { clearAuth, isReady, accessToken, refreshToken } = useAuth()
   const { getProfile } = useUsersApi()
-  const {
-    getMyRequests,
-    createRequest,
-    updateRequest,
-    deleteRequest,
-  } = useTripRequestsApi()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const statusFilter = searchParams.get("status") ?? ""
-  const page = Math.max(1, Number(searchParams.get("page")) || 1)
-  const limit = Math.max(1, Math.min(50, Number(searchParams.get("limit")) || 10))
+  const { getAllRequests } = useTripRequestsApi()
 
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
-  const [requests, setRequests] = useState<TripRequestShortResponse[]>([])
-  const [paginationMeta, setPaginationMeta] = useState({
-    total: 0,
-    totalPages: 0,
-  })
+  const [requests, setRequests] = useState<TripRequestResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [destinationSearch, setDestinationSearch] = useState("")
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editingRequest, setEditingRequest] =
-    useState<TripRequestShortResponse | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
 
@@ -103,18 +80,10 @@ export function Requests() {
   const loadRequests = () => {
     setLoading(true)
     setError(null)
-    getMyRequests({
-      status: statusFilter || undefined,
-      page,
-      limit,
-    })
+    getAllRequests()
       .then((res) => {
         const data = res.data
-        setRequests(data.requests ?? [])
-        setPaginationMeta({
-          total: data.pagination?.total ?? 0,
-          totalPages: data.pagination?.totalPages ?? 0,
-        })
+        setRequests(Array.isArray(data) ? data : [])
       })
       .catch((e) => setError(e?.message ?? "Failed to load requests"))
       .finally(() => setLoading(false))
@@ -126,32 +95,10 @@ export function Requests() {
       return
     }
     loadRequests()
-  }, [isReady, accessToken, refreshToken, statusFilter, page, limit])
+  }, [isReady, accessToken, refreshToken])
 
-  const updateFilters = (updates: {
-    status?: string
-    page?: number
-    limit?: number
-  }) => {
-    setSearchParams((prev) => {
-      const p = new URLSearchParams(prev)
-      if (updates.status !== undefined) {
-        if (updates.status) p.set("status", updates.status)
-        else p.delete("status")
-      }
-      if (updates.page !== undefined) p.set("page", String(updates.page))
-      if (updates.limit !== undefined) p.set("limit", String(updates.limit))
-      return p
-    })
-  }
-
-  const clearFilters = () => {
-    setSearchParams({})
-    setDestinationSearch("")
-  }
-
-  const hasActiveFilters =
-    statusFilter || page > 1 || limit !== 10 || destinationSearch
+  const clearFilters = () => setDestinationSearch("")
+  const hasActiveFilters = !!destinationSearch.trim()
 
   const filteredRequests = useMemo(() => {
     let list = requests
@@ -197,49 +144,7 @@ export function Requests() {
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen)
   const closeSidebar = () => setIsSidebarOpen(false)
 
-  const handleCreate = async (body: CreateTripRequestRequest) => {
-    await createRequest(body)
-    loadRequests()
-  }
-
-  const handleUpdate = async (
-    requestId: string,
-    body: UpdateTripRequestRequest
-  ) => {
-    await updateRequest(requestId, body)
-    setEditingRequest(null)
-    loadRequests()
-  }
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this trip request?")) return
-    setDeletingId(id)
-    try {
-      await deleteRequest(id)
-      loadRequests()
-    } finally {
-      setDeletingId(null)
-    }
-  }
-
-  const openCreateModal = () => {
-    setEditingRequest(null)
-    setModalOpen(true)
-  }
-
-  const openEditModal = (r: TripRequestShortResponse) => {
-    setEditingRequest(r)
-    setModalOpen(true)
-  }
-
-  const closeModal = () => {
-    setModalOpen(false)
-    setEditingRequest(null)
-  }
-
   const avatarUrl = photoUrlForBrowser(profilePhoto ?? undefined)
-  const hasNext = page < paginationMeta.totalPages
-  const hasPrev = page > 1
 
   return (
     <div className="app-layout">
@@ -324,7 +229,6 @@ export function Requests() {
           </button>
           <Logo />
         </div>
-        <SearchBar />
         <div className="app-header-right">
           <ThemeToggle />
           <NotificationButton />
@@ -352,27 +256,8 @@ export function Requests() {
               margin: 0,
             }}
           >
-            Create and manage your trip requests
+            Browse all trip requests
           </p>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 16,
-            alignItems: "center",
-            marginBottom: 24,
-          }}
-        >
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={openCreateModal}
-            style={{ width: "auto", padding: "12px 24px" }}
-          >
-            + Create Trip Request
-          </button>
         </div>
 
         <section
@@ -394,40 +279,6 @@ export function Requests() {
             }}
           >
             <label style={{ fontSize: "0.875rem", color: "var(--text-muted)", fontWeight: 500 }}>
-              Status
-            </label>
-            <select
-              className="input-field"
-              value={statusFilter}
-              onChange={(e) => updateFilters({ status: e.target.value, page: 1 })}
-              style={{ width: "auto", minWidth: 140 }}
-              aria-label="Filter by status"
-            >
-              <option value="">All statuses</option>
-              <option value="PENDING">Pending</option>
-              <option value="ACTIVE">Active</option>
-              <option value="MATCHED">Matched</option>
-              <option value="COMPLETED">Completed</option>
-              <option value="CANCELLED">Cancelled</option>
-            </select>
-
-            <label style={{ fontSize: "0.875rem", color: "var(--text-muted)", fontWeight: 500, marginLeft: 8 }}>
-              Per page
-            </label>
-            <select
-              className="input-field"
-              value={limit}
-              onChange={(e) => updateFilters({ limit: Number(e.target.value), page: 1 })}
-              style={{ width: "auto", minWidth: 80 }}
-              aria-label="Items per page"
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
-
-            <label style={{ fontSize: "0.875rem", color: "var(--text-muted)", fontWeight: 500, marginLeft: 8 }}>
               Search destination
             </label>
             <input
@@ -439,7 +290,6 @@ export function Requests() {
               style={{ width: "auto", minWidth: 160 }}
               aria-label="Search by destination"
             />
-
             {hasActiveFilters && (
               <button
                 type="button"
@@ -447,7 +297,7 @@ export function Requests() {
                 onClick={clearFilters}
                 style={{ marginLeft: "auto", padding: "8px 16px" }}
               >
-                Clear filters
+                Clear
               </button>
             )}
           </div>
@@ -480,17 +330,9 @@ export function Requests() {
               textAlign: "center",
             }}
           >
-            <p style={{ color: "var(--text-muted)", marginBottom: 16 }}>
-              No trip requests yet. Create your first one!
+            <p style={{ color: "var(--text-muted)" }}>
+              No trip requests yet.
             </p>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={openCreateModal}
-              style={{ width: "auto", padding: "12px 24px" }}
-            >
-              Create Trip Request
-            </button>
           </div>
         ) : filteredRequests.length === 0 ? (
           <div
@@ -588,72 +430,8 @@ export function Requests() {
                     </p>
                   )}
                 </div>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 8,
-                    marginTop: 8,
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => openEditModal(r)}
-                    style={{ flex: 1, padding: "8px 16px" }}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => handleDelete(r.id)}
-                    disabled={deletingId === r.id}
-                    style={{
-                      flex: 1,
-                      padding: "8px 16px",
-                      color: "var(--status-error)",
-                      borderColor: "var(--status-error)",
-                    }}
-                  >
-                    {deletingId === r.id ? "Deleting…" : "Delete"}
-                  </button>
-                </div>
               </div>
             ))}
-          </div>
-        )}
-
-        {paginationMeta.totalPages > 1 && (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              gap: 16,
-              marginTop: 32,
-            }}
-          >
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => updateFilters({ page: page - 1 })}
-              disabled={!hasPrev}
-              style={{ width: "auto", padding: "8px 16px" }}
-            >
-              Previous
-            </button>
-            <span style={{ color: "var(--text-muted)", fontSize: "0.9375rem" }}>
-              Page {page} of {paginationMeta.totalPages} ({paginationMeta.total} total)
-            </span>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => updateFilters({ page: page + 1 })}
-              disabled={!hasNext}
-              style={{ width: "auto", padding: "8px 16px" }}
-            >
-              Next
-            </button>
           </div>
         )}
       </main>
@@ -661,15 +439,6 @@ export function Requests() {
       <footer className="app-footer">
         © 2026 TripMate. Travel together, explore forever.
       </footer>
-
-      {modalOpen && (
-        <CreateTripRequestModal
-          onClose={closeModal}
-          onCreate={handleCreate}
-          onUpdate={editingRequest ? handleUpdate : undefined}
-          editing={editingRequest}
-        />
-      )}
     </div>
   )
 }
