@@ -363,14 +363,18 @@ export function Requests() {
             }}
           >
             {filteredRequests.map((r) => (
-              <div
+              <Link
                 key={r.id}
+                to={`/requests/${r.id}`}
                 className="card-premium"
                 style={{
                   padding: 24,
                   display: "flex",
                   flexDirection: "column",
                   gap: 12,
+                  cursor: "pointer",
+                  textDecoration: "none",
+                  color: "inherit",
                 }}
               >
                 <div style={{ flex: 1 }}>
@@ -430,7 +434,7 @@ export function Requests() {
                     </p>
                   )}
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}

@@ -5,6 +5,7 @@ import { PrivateRoute } from "./components/PrivateRoute";
 import { Home } from "./pages/Home";
 import { Profile } from "./pages/Profile";
 import { Requests } from "./pages/Requests";
+import { TripRequestDetail } from "./pages/TripRequestDetail";
 import { Login } from "./pages/Login";
 import { SignUpOptions } from "./pages/SignUpOptions";
 import { ManualRegistration } from "./pages/ManualRegistration";
@@ -41,6 +42,14 @@ function App() {
               element={
                 <PrivateRoute>
                   <Requests />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/requests/:id"
+              element={
+                <PrivateRoute>
+                  <TripRequestDetail />
                 </PrivateRoute>
               }
             />
