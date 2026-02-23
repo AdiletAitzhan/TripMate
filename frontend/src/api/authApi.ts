@@ -44,8 +44,6 @@ const fetchOpts: RequestInit = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
   },
-  credentials: 'omit',
-  mode: 'cors',
 }
 
 /** Общая функция: POST на path с JSON body */

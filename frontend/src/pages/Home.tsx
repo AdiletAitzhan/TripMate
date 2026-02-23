@@ -1,53 +1,14 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
-import { Logo } from "../components/Logo";
 import { NotificationButton } from "../components/NotificationButton";
-import { UserAvatar } from "../components/UserAvatar";
-import { FeatureCard } from "../components/FeatureCard";
-import { ThemeToggle } from "../components/ThemeToggle";
-import {
-  IconCatalog,
-  IconProfile,
-  IconRequests,
-  IconOffers,
-  IconLogout,
-  IconMenu,
-  IconClose,
-} from "../components/icons";
 import { useAuth } from "../context/useAuth";
-import { useUsersApi } from "../hooks/useUsersApi";
-
-function photoUrlForBrowser(url: string | undefined): string | undefined {
-  if (!url) return undefined;
-  return url.replace(/http:\/\/minio:9000/, "http://localhost:9000");
-}
 
 export function Home() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { clearAuth, isReady, accessToken, refreshToken } = useAuth();
-  const { getProfile } = useUsersApi();
-  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+  const { clearAuth } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isReady || (!accessToken && !refreshToken)) return;
-    let cancelled = false;
-    getProfile()
-      .then((body) => {
-        if (cancelled) return;
-        const data = (
-          body as { success?: boolean; data?: { profilePhoto?: string } }
-        )?.data;
-        const photo = data?.profilePhoto;
-        if (photo) setProfilePhoto(photoUrlForBrowser(photo) ?? photo);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [isReady, accessToken, refreshToken, getProfile]);
 
   // Close sidebar when clicking outside
   useEffect(() => {
@@ -100,148 +61,177 @@ export function Home() {
     };
   }, [isSidebarOpen]);
 
-  const avatarUrl = photoUrlForBrowser(profilePhoto ?? undefined);
+  // Scroll animations using Intersection Observer
+  useEffect(() => {
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: "0px 0px -50px 0px",
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("aos-animate");
+        }
+      });
+    }, observerOptions);
+
+    const elements = document.querySelectorAll("[data-aos]");
+    elements.forEach((el) => observer.observe(el));
+
+    return () => {
+      elements.forEach((el) => observer.unobserve(el));
+    };
+  }, []);
 
   return (
-    <div className="app-layout">
-      {/* Sidebar overlay */}
-      <div
-        className={`sidebar-overlay ${isSidebarOpen ? "active" : ""}`}
-        onClick={closeSidebar}
-        aria-hidden="true"
-      />
+    <>
+      <div className="grain" aria-hidden="true" />
+      <div className="app-layout">
+        {/* Sidebar overlay */}
+        <div
+          className={`sidebar-overlay ${isSidebarOpen ? "active" : ""}`}
+          onClick={closeSidebar}
+          aria-hidden="true"
+        />
 
-      {/* Sidebar */}
-      <aside
-        ref={sidebarRef}
-        className={`sidebar ${isSidebarOpen ? "open" : ""}`}
-        role="navigation"
-        aria-label="Main navigation"
-      >
-        <div className="sidebar-header">
-          <span className="sidebar-title">Menu</span>
-          <button
-            type="button"
-            className="menu-button"
-            onClick={toggleSidebar}
-            aria-label="Close menu"
-          >
-            <IconClose />
-          </button>
-        </div>
-
-        <nav>
-          <Link
-            to="/"
-            className={`sidebar-link ${location.pathname === "/" ? "active" : ""}`}
-            onClick={closeSidebar}
-          >
-            <IconCatalog />
-            Catalog
-          </Link>
-          <Link
-            to="/profile"
-            className={`sidebar-link ${location.pathname === "/profile" ? "active" : ""}`}
-            onClick={closeSidebar}
-          >
-            <IconProfile />
-            Profile
-          </Link>
-          <Link
-            to="/requests"
-            className={`sidebar-link ${location.pathname === "/requests" ? "active" : ""}`}
-            onClick={closeSidebar}
-          >
-            <IconRequests />
-            Requests
-          </Link>
-          <Link
-            to="/offers"
-            className={`sidebar-link ${location.pathname === "/offers" ? "active" : ""}`}
-            onClick={closeSidebar}
-          >
-            <IconOffers />
-            Offers
-          </Link>
-        </nav>
-
-        <div className="spacer" />
-
-        <button
-          onClick={handleLogout}
-          type="button"
-          className="sidebar-link logout"
+        {/* Sidebar */}
+        <aside
+          ref={sidebarRef}
+          className={`sidebar ${isSidebarOpen ? "open" : ""}`}
+          role="navigation"
+          aria-label="Main navigation"
         >
-          <IconLogout />
-          Log out
-        </button>
-      </aside>
+          <div className="sidebar-header">
+            <span className="sidebar-title">Menu</span>
+            <button
+              type="button"
+              className="menu-button"
+              onClick={toggleSidebar}
+              aria-label="Close menu"
+            >
+              ×
+            </button>
+          </div>
 
-      {/* Header */}
-      <header className="app-header">
-        <div className="app-header-left">
+          <nav>
+            <Link
+              to="/dashboard"
+              className={`sidebar-link ${location.pathname === "/dashboard" ? "active" : ""}`}
+              onClick={closeSidebar}
+            >
+              Catalog
+            </Link>
+            <Link
+              to="/profile"
+              className={`sidebar-link ${location.pathname === "/profile" ? "active" : ""}`}
+              onClick={closeSidebar}
+            >
+              Profile
+            </Link>
+            <Link
+              to="/requests"
+              className={`sidebar-link ${location.pathname === "/requests" ? "active" : ""}`}
+              onClick={closeSidebar}
+            >
+              Requests
+            </Link>
+            <Link
+              to="/offers"
+              className={`sidebar-link ${location.pathname === "/offers" ? "active" : ""}`}
+              onClick={closeSidebar}
+            >
+              Offers
+            </Link>
+          </nav>
+
+          <div className="spacer" />
+
           <button
+            onClick={handleLogout}
             type="button"
-            className="menu-button"
-            onClick={toggleSidebar}
-            aria-label="Open menu"
-            aria-expanded={isSidebarOpen}
+            className="sidebar-link logout"
           >
-            <IconMenu />
+            Log out
           </button>
-          <Logo />
-        </div>
+        </aside>
 
-        <div className="app-header-right">
-          <ThemeToggle />
-          <NotificationButton />
-          <UserAvatar photoUrl={avatarUrl} />
-        </div>
-      </header>
+        {/* Header */}
+        <header className="app-header">
+          <div className="app-header-left">
+            <button
+              type="button"
+              className="menu-button"
+              onClick={toggleSidebar}
+              aria-label="Open menu"
+              aria-expanded={isSidebarOpen}
+            >
+              ☰
+            </button>
+            <span>TripMate</span>
+          </div>
 
-      {/* Main content */}
-      <main className="app-content">
-        <section className="welcome-section">
-          <h1 className="welcome-title">Welcome to TripMate</h1>
-          <p className="welcome-description">
-            Plan your perfect trip with friends. Share itineraries, split costs,
-            and make memories together.
-          </p>
-        </section>
+          <div className="app-header-right">
+            <NotificationButton />
+          </div>
+        </header>
 
-        <div className="features-grid">
-          <FeatureCard
-            emoji="🗺️"
-            title="Plan Together"
-            description="Create shared itineraries and collaborate in real-time with your travel group."
-          />
-          <FeatureCard
-            emoji="💰"
-            title="Split Expenses"
-            description="Track group expenses and settle up easily. No more awkward money talks."
-          />
-          <FeatureCard
-            emoji="📍"
-            title="Discover Places"
-            description="Get personalized recommendations based on your group's interests."
-          />
-        </div>
+        {/* Main content */}
+        <main className="app-content">
+          {/* Hero Section */}
+          <section className="hero-section" data-aos="fade-up">
+            <div className="hero-background">
+              <div className="hero-gradient"></div>
+              <div className="hero-pattern"></div>
+            </div>
+            <div className="hero-content">
+              <h1 className="hero-title">
+                Welcome Back!
+                <span className="hero-title-accent">
+                  {" "}
+                  Let's Plan Your Next Adventure
+                </span>
+              </h1>
+              <p className="hero-subtitle">
+                Create new trips, manage expenses, and explore destinations with
+                your group. Everything you need for seamless group travel
+                planning.
+              </p>
+              <div className="hero-cta-group">
+                <button
+                  className="btn btn-primary hero-cta-primary"
+                  onClick={() => navigate("/requests")}
+                  aria-label="Create a new trip"
+                >
+                  Create New Trip
+                </button>
+                <button
+                  className="btn btn-secondary hero-cta-secondary"
+                  onClick={() => navigate("/profile")}
+                  aria-label="Go to profile"
+                >
+                  My Profile
+                </button>
+              </div>
+            </div>
+          </section>
+        </main>
 
-        <div className="cta-card">
-          <h2 className="cta-title">Ready to start your adventure?</h2>
-          <button
-            className="btn btn-primary cta-button"
-            onClick={() => navigate("/requests")}
-          >
-            Create New Trip
-          </button>
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="app-footer">
-        © 2026 TripMate. Travel together, explore forever.
-      </footer>
-    </div>
+        {/* Footer */}
+        <footer className="app-footer">
+          <div className="footer-content">
+            <div className="footer-section">
+              <h3 className="footer-title">TripMate</h3>
+              <p className="footer-tagline">
+                Travel together, explore forever.
+              </p>
+            </div>
+          </div>
+          <div className="footer-bottom">
+            <p>© 2026 TripMate. All rights reserved.</p>
+          </div>
+        </footer>
+      </div>
+    </>
   );
 }

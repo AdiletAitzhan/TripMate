@@ -1,9 +1,7 @@
 import { useState } from "react"
-import { Modal } from "./Modal"
 import type {
   CreateTripRequestRequest,
   DestinationDto,
-  BudgetDto,
   TripRequestShortResponse,
   UpdateTripRequestRequest,
 } from "../types/tripRequest"
@@ -109,7 +107,13 @@ export function CreateTripRequestModal({
   const title = editing ? "Edit Trip Request" : "Create Trip Request"
 
   return (
-    <Modal title={title} onClose={onClose}>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>{title}</h2>
+          <button onClick={onClose} className="modal-close">×</button>
+        </div>
+        <div className="modal-body">
       <form onSubmit={handleSubmit}>
         {error && (
           <p
@@ -249,6 +253,8 @@ export function CreateTripRequestModal({
           </button>
         </div>
       </form>
-    </Modal>
+        </div>
+      </div>
+    </div>
   )
 }

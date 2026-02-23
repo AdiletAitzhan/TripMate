@@ -1,5 +1,3 @@
-import { IconBell } from "./icons";
-
 export function NotificationButton() {
   return (
     <button
@@ -8,7 +6,7 @@ export function NotificationButton() {
       title="Notifications"
       aria-label="Notifications"
     >
-      <IconBell />
+      🔔
     </button>
   );
 }
