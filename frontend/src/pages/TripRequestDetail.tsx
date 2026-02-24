@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { NotificationButton } from "../components/NotificationButton";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { useAuth } from "../context/useAuth";
 import { useTripRequestsApi } from "../hooks/useTripRequestsApi";
 import type { TripRequestResponse } from "../types/tripRequest";
@@ -36,6 +37,21 @@ function formatBudget(budget: TripRequestResponse["budget"]): string {
   if (!budget?.amount) return "—";
   const curr = budget.currency ?? "USD";
   return `${budget.amount} ${curr}`;
+}
+
+const INTEREST_COLORS = [
+  { bg: "#E8D5F2", text: "#6B2D8F" }, // Purple
+  { bg: "#FFE5E5", text: "#C92A2A" }, // Red
+  { bg: "#D3F5F7", text: "#0C7792" }, // Cyan
+  { bg: "#FFF3C4", text: "#8B6914" }, // Yellow
+  { bg: "#C8E6C9", text: "#2E7D32" }, // Green
+  { bg: "#FFCCBC", text: "#D84315" }, // Orange
+  { bg: "#BBDEFB", text: "#1565C0" }, // Blue
+  { bg: "#F8BBD0", text: "#AD1457" }, // Pink
+];
+
+function getInterestColor(index: number) {
+  return INTEREST_COLORS[index % INTEREST_COLORS.length];
 }
 
 function formatPreferences(
@@ -257,6 +273,7 @@ export function TripRequestDetail() {
             <span>TripMate</span>
           </div>
           <div className="app-header-right">
+            <ThemeToggle />
             <NotificationButton />
           </div>
         </header>
@@ -497,30 +514,42 @@ export function TripRequestDetail() {
                   </div>
                 )}
 
-                {request.preferences && (
+                {request.interests && request.interests.length > 0 && (
                   <div>
                     <h3
                       style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 600,
-                        color: "var(--text-muted)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        margin: "0 0 8px",
+                        fontSize: "1rem",
+                        marginBottom: "0.75rem",
+                        color: "var(--text-primary)",
                       }}
                     >
-                      Preferences
+                      Interests
                     </h3>
                     <div
                       style={{
-                        fontSize: "0.875rem",
-                        color: "var(--text)",
-                        padding: 12,
-                        background: "var(--bg)",
-                        borderRadius: 8,
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "0.5rem",
                       }}
                     >
-                      {formatPreferences(request.preferences)}
+                      {request.interests.map((interest, idx) => {
+                        const colors = getInterestColor(idx);
+                        return (
+                          <span
+                            key={idx}
+                            style={{
+                              padding: "0.25rem 0.75rem",
+                              borderRadius: "12px",
+                              backgroundColor: colors.bg,
+                              color: colors.text,
+                              fontSize: "0.875rem",
+                              fontWeight: "500",
+                            }}
+                          >
+                            {interest}
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

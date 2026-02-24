@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { NotificationButton } from "../components/NotificationButton";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { useAuth } from "../context/useAuth";
 import { useUsersApi } from "../hooks/useUsersApi";
 import { useTripRequestsApi } from "../hooks/useTripRequestsApi";
@@ -507,6 +508,7 @@ export function Profile() {
           </div>
 
           <div className="app-header-right">
+            <ThemeToggle />
             <NotificationButton />
           </div>
         </header>
