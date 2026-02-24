@@ -38,6 +38,86 @@ function formatBudget(budget: TripRequestResponse["budget"]): string {
   return `${budget.amount} ${curr}`;
 }
 
+function formatPreferences(
+  prefs: TripRequestResponse["preferences"],
+): JSX.Element | null {
+  if (!prefs) return null;
+
+  const items: JSX.Element[] = [];
+
+  if (prefs.mustHave) {
+    const mustItems: string[] = [];
+
+    if (prefs.mustHave.ageRange) {
+      const { min, max } = prefs.mustHave.ageRange;
+      mustItems.push(`Age: ${min ?? "?"}-${max ?? "?"}`);
+    }
+
+    if (prefs.mustHave.gender && prefs.mustHave.gender.length > 0) {
+      const genders = prefs.mustHave.gender.join(", ");
+      mustItems.push(`Gender: ${genders}`);
+    }
+
+    if (prefs.mustHave.verifiedOnly !== undefined) {
+      mustItems.push(
+        `Verified only: ${prefs.mustHave.verifiedOnly ? "Yes" : "No"}`,
+      );
+    }
+
+    if (mustItems.length > 0) {
+      items.push(
+        <div key="must-have" style={{ marginBottom: 12 }}>
+          <strong style={{ color: "var(--accent)", fontSize: "0.875rem" }}>
+            Must Have:
+          </strong>
+          <ul
+            style={{ margin: "4px 0 0", paddingLeft: 20, fontSize: "0.875rem" }}
+          >
+            {mustItems.map((item, idx) => (
+              <li key={idx} style={{ marginBottom: 2 }}>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>,
+      );
+    }
+  }
+
+  if (prefs.niceToHave) {
+    const niceItems: string[] = [];
+
+    if (prefs.niceToHave.similarInterests) {
+      niceItems.push(`Similar interests: ${prefs.niceToHave.similarInterests}`);
+    }
+
+    if (prefs.niceToHave.similarBudget) {
+      niceItems.push(`Similar budget: ${prefs.niceToHave.similarBudget}`);
+    }
+
+    if (niceItems.length > 0) {
+      items.push(
+        <div key="nice-to-have">
+          <strong style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
+            Nice to Have:
+          </strong>
+          <ul
+            style={{ margin: "4px 0 0", paddingLeft: 20, fontSize: "0.875rem" }}
+          >
+            {niceItems.map((item, idx) => (
+              <li key={idx} style={{ marginBottom: 2 }}>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>,
+      );
+    }
+  }
+
+  return items.length > 0 ? <div>{items}</div> : null;
+}
+
 export function TripRequestDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -125,11 +205,11 @@ export function TripRequestDetail() {
           </div>
           <nav>
             <Link
-              to="/"
-              className={`sidebar-link ${location.pathname === "/" ? "active" : ""}`}
+              to="/home"
+              className={`sidebar-link ${location.pathname === "/home" ? "active" : ""}`}
               onClick={closeSidebar}
             >
-              Catalog
+              Home
             </Link>
             <Link
               to="/profile"
@@ -143,7 +223,7 @@ export function TripRequestDetail() {
               className={`sidebar-link ${location.pathname.startsWith("/requests") ? "active" : ""}`}
               onClick={closeSidebar}
             >
-              Requests
+              My Requests
             </Link>
             <Link
               to="/offers"
@@ -426,25 +506,22 @@ export function TripRequestDetail() {
                         color: "var(--text-muted)",
                         textTransform: "uppercase",
                         letterSpacing: "0.05em",
-                        margin: "0 0 4px",
+                        margin: "0 0 8px",
                       }}
                     >
                       Preferences
                     </h3>
-                    <pre
+                    <div
                       style={{
                         fontSize: "0.875rem",
                         color: "var(--text)",
-                        margin: 0,
                         padding: 12,
                         background: "var(--bg)",
                         borderRadius: 8,
-                        overflow: "auto",
-                        whiteSpace: "pre-wrap",
                       }}
                     >
-                      {JSON.stringify(request.preferences, null, 2)}
-                    </pre>
+                      {formatPreferences(request.preferences)}
+                    </div>
                   </div>
                 )}
               </section>

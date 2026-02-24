@@ -1,16 +1,81 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { NotificationButton } from "../components/NotificationButton";
 import { useAuth } from "../context/useAuth";
+import { useTripRequestsApi } from "../hooks/useTripRequestsApi";
+import type { TripRequestResponse } from "../types/tripRequest";
+
+function formatDate(s: string | undefined): string {
+  if (!s) return "—";
+  const d = new Date(s);
+  return d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatDestination(dest: TripRequestResponse["destination"]): string {
+  const parts = [dest?.city, dest?.country].filter(Boolean);
+  return parts.length ? parts.join(", ") : "—";
+}
+
+function formatBudget(budget: TripRequestResponse["budget"]): string {
+  if (!budget?.amount) return "—";
+  const curr = budget.currency ?? "USD";
+  return `${budget.amount} ${curr}`;
+}
 
 export function Home() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { clearAuth } = useAuth();
+  const { clearAuth, isReady, accessToken, refreshToken } = useAuth();
+  const { getAllRequests } = useTripRequestsApi();
+
+  const [requests, setRequests] = useState<TripRequestResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [destinationSearch, setDestinationSearch] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
-  // Close sidebar when clicking outside
+  const loadRequests = () => {
+    setLoading(true);
+    setError(null);
+    getAllRequests()
+      .then((res) => {
+        const data = res.data;
+        setRequests(Array.isArray(data) ? data : []);
+      })
+      .catch((e) => setError(e?.message ?? "Failed to load requests"))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    if (!isReady || (!accessToken && !refreshToken)) {
+      setLoading(false);
+      return;
+    }
+    loadRequests();
+  }, [isReady, accessToken, refreshToken]);
+
+  const clearFilters = () => setDestinationSearch("");
+  const hasActiveFilters = !!destinationSearch.trim();
+
+  const filteredRequests = useMemo(() => {
+    let list = requests;
+
+    if (destinationSearch.trim()) {
+      const q = destinationSearch.trim().toLowerCase();
+      list = list.filter((r) => {
+        const dest = formatDestination(r.destination).toLowerCase();
+        return dest.includes(q);
+      });
+    }
+
+    return list;
+  }, [requests, destinationSearch]);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -21,14 +86,17 @@ export function Home() {
         setIsSidebarOpen(false);
       }
     };
-
-    if (isSidebarOpen) {
+    if (isSidebarOpen)
       document.addEventListener("mousedown", handleClickOutside);
-    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isSidebarOpen]);
 
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isSidebarOpen) setIsSidebarOpen(false);
     };
+    if (isSidebarOpen) document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
   }, [isSidebarOpen]);
 
   const handleLogout = () => {
@@ -36,66 +104,19 @@ export function Home() {
     navigate("/login", { replace: true });
   };
 
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
-
-  const closeSidebar = () => {
-    setIsSidebarOpen(false);
-  };
-
-  // Close sidebar on Escape key
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isSidebarOpen) {
-        closeSidebar();
-      }
-    };
-
-    if (isSidebarOpen) {
-      document.addEventListener("keydown", handleEscape);
-    }
-
-    return () => {
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [isSidebarOpen]);
-
-  // Scroll animations using Intersection Observer
-  useEffect(() => {
-    const observerOptions = {
-      threshold: 0.1,
-      rootMargin: "0px 0px -50px 0px",
-    };
-
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add("aos-animate");
-        }
-      });
-    }, observerOptions);
-
-    const elements = document.querySelectorAll("[data-aos]");
-    elements.forEach((el) => observer.observe(el));
-
-    return () => {
-      elements.forEach((el) => observer.unobserve(el));
-    };
-  }, []);
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+  const closeSidebar = () => setIsSidebarOpen(false);
 
   return (
     <>
       <div className="grain" aria-hidden="true" />
       <div className="app-layout">
-        {/* Sidebar overlay */}
         <div
           className={`sidebar-overlay ${isSidebarOpen ? "active" : ""}`}
           onClick={closeSidebar}
           aria-hidden="true"
         />
 
-        {/* Sidebar */}
         <aside
           ref={sidebarRef}
           className={`sidebar ${isSidebarOpen ? "open" : ""}`}
@@ -113,14 +134,13 @@ export function Home() {
               ×
             </button>
           </div>
-
           <nav>
             <Link
-              to="/dashboard"
-              className={`sidebar-link ${location.pathname === "/dashboard" ? "active" : ""}`}
+              to="/home"
+              className={`sidebar-link ${location.pathname === "/home" ? "active" : ""}`}
               onClick={closeSidebar}
             >
-              Catalog
+              Home
             </Link>
             <Link
               to="/profile"
@@ -134,7 +154,7 @@ export function Home() {
               className={`sidebar-link ${location.pathname === "/requests" ? "active" : ""}`}
               onClick={closeSidebar}
             >
-              Requests
+              My Requests
             </Link>
             <Link
               to="/offers"
@@ -144,9 +164,7 @@ export function Home() {
               Offers
             </Link>
           </nav>
-
           <div className="spacer" />
-
           <button
             onClick={handleLogout}
             type="button"
@@ -156,7 +174,6 @@ export function Home() {
           </button>
         </aside>
 
-        {/* Header */}
         <header className="app-header">
           <div className="app-header-left">
             <button
@@ -170,66 +187,227 @@ export function Home() {
             </button>
             <span>TripMate</span>
           </div>
-
           <div className="app-header-right">
             <NotificationButton />
           </div>
         </header>
 
-        {/* Main content */}
-        <main className="app-content">
-          {/* Hero Section */}
-          <section className="hero-section" data-aos="fade-up">
-            <div className="hero-background">
-              <div className="hero-gradient"></div>
-              <div className="hero-pattern"></div>
-            </div>
-            <div className="hero-content">
-              <h1 className="hero-title">
-                Welcome Back!
-                <span className="hero-title-accent">
-                  {" "}
-                  Let's Plan Your Next Adventure
-                </span>
-              </h1>
-              <p className="hero-subtitle">
-                Create new trips, manage expenses, and explore destinations with
-                your group. Everything you need for seamless group travel
-                planning.
-              </p>
-              <div className="hero-cta-group">
+        <main
+          className="app-content"
+          style={{ padding: 32, maxWidth: 900, margin: "0 auto" }}
+        >
+          <div style={{ marginBottom: 24, textAlign: "left" }}>
+            <h1
+              style={{
+                fontSize: "2rem",
+                fontWeight: 700,
+                color: "var(--text)",
+                margin: "0 0 4px",
+                letterSpacing: "-0.02em",
+              }}
+            >
+              Trip Requests
+            </h1>
+            <p
+              style={{
+                fontSize: "0.9375rem",
+                color: "var(--text-muted)",
+                margin: 0,
+              }}
+            >
+              Browse all available trip requests
+            </p>
+          </div>
+
+          <section
+            aria-label="Filters"
+            style={{
+              marginBottom: 24,
+              padding: "16px 20px",
+              background: "var(--card-bg)",
+              borderRadius: 12,
+              border: "1px solid var(--border)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 12,
+                alignItems: "center",
+              }}
+            >
+              <label
+                style={{
+                  fontSize: "0.875rem",
+                  color: "var(--text-muted)",
+                  fontWeight: 500,
+                }}
+              >
+                Search destination
+              </label>
+              <input
+                type="search"
+                className="input-field"
+                placeholder="City or country…"
+                value={destinationSearch}
+                onChange={(e) => setDestinationSearch(e.target.value)}
+                style={{ width: "auto", minWidth: 160 }}
+                aria-label="Search by destination"
+              />
+              {hasActiveFilters && (
                 <button
-                  className="btn btn-primary hero-cta-primary"
-                  onClick={() => navigate("/requests")}
-                  aria-label="Create a new trip"
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={clearFilters}
+                  style={{ marginLeft: "auto", padding: "8px 16px" }}
                 >
-                  Create New Trip
+                  Clear
                 </button>
-                <button
-                  className="btn btn-secondary hero-cta-secondary"
-                  onClick={() => navigate("/profile")}
-                  aria-label="Go to profile"
-                >
-                  My Profile
-                </button>
-              </div>
+              )}
             </div>
           </section>
-        </main>
 
-        {/* Footer */}
-        <footer className="app-footer">
-          <div className="footer-content">
-            <div className="footer-section">
-              <h3 className="footer-title">TripMate</h3>
-              <p className="footer-tagline">
-                Travel together, explore forever.
+          {error && (
+            <p
+              style={{
+                color: "var(--status-error)",
+                marginBottom: 16,
+                fontSize: "0.9375rem",
+                padding: "12px 16px",
+                background: "var(--status-error-bg)",
+                borderRadius: 8,
+                border: "1px solid var(--status-error-border)",
+              }}
+              role="alert"
+            >
+              {error}
+            </p>
+          )}
+
+          {loading ? (
+            <p style={{ color: "var(--text-muted)" }}>Loading…</p>
+          ) : requests.length === 0 ? (
+            <div
+              className="card-premium"
+              style={{
+                padding: 48,
+                textAlign: "center",
+              }}
+            >
+              <p style={{ color: "var(--text-muted)" }}>
+                No trip requests yet.
               </p>
             </div>
-          </div>
-          <div className="footer-bottom">
-            <p>© 2026 TripMate. All rights reserved.</p>
-          </div>
+          ) : filteredRequests.length === 0 ? (
+            <div
+              className="card-premium"
+              style={{
+                padding: 48,
+                textAlign: "center",
+              }}
+            >
+              <p style={{ color: "var(--text-muted)", marginBottom: 16 }}>
+                No requests match your destination search. Try a different term
+                or clear filters.
+              </p>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={clearFilters}
+                style={{ width: "auto", padding: "12px 24px" }}
+              >
+                Clear filters
+              </button>
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+                gap: 24,
+              }}
+            >
+              {filteredRequests.map((r) => (
+                <Link
+                  key={r.id}
+                  to={`/requests/${r.id}`}
+                  className="card-premium"
+                  style={{
+                    padding: 24,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 12,
+                    cursor: "pointer",
+                    textDecoration: "none",
+                    color: "inherit",
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <h3
+                      style={{
+                        fontSize: "1.125rem",
+                        fontWeight: 600,
+                        color: "var(--text)",
+                        margin: "0 0 8px",
+                      }}
+                    >
+                      {formatDestination(r.destination)}
+                    </h3>
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "var(--text-muted)",
+                        margin: "0 0 4px",
+                      }}
+                    >
+                      {formatDate(r.startDate)} — {formatDate(r.endDate)}
+                    </p>
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "var(--text-muted)",
+                        margin: 0,
+                      }}
+                    >
+                      Budget: {formatBudget(r.budget)}
+                    </p>
+                    {r.status && (
+                      <span
+                        style={{
+                          display: "inline-block",
+                          marginTop: 8,
+                          padding: "4px 10px",
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          borderRadius: 999,
+                          background: "var(--accent-light)",
+                          color: "var(--accent)",
+                        }}
+                      >
+                        {r.status}
+                      </span>
+                    )}
+                    {r.matchCount != null && r.matchCount > 0 && (
+                      <p
+                        style={{
+                          fontSize: "0.8125rem",
+                          color: "var(--status-success)",
+                          margin: "4px 0 0",
+                        }}
+                      >
+                        {r.matchCount} match{r.matchCount !== 1 ? "es" : ""}
+                      </p>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </main>
+
+        <footer className="app-footer">
+          © 2026 TripMate. Travel together, explore forever.
         </footer>
       </div>
     </>

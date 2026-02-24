@@ -136,11 +136,11 @@ export function Requests() {
           </div>
           <nav>
             <Link
-              to="/"
-              className={`sidebar-link ${location.pathname === "/" ? "active" : ""}`}
+              to="/home"
+              className={`sidebar-link ${location.pathname === "/home" ? "active" : ""}`}
               onClick={closeSidebar}
             >
-              Catalog
+              Home
             </Link>
             <Link
               to="/profile"
@@ -154,7 +154,7 @@ export function Requests() {
               className={`sidebar-link ${location.pathname === "/requests" ? "active" : ""}`}
               onClick={closeSidebar}
             >
-              Requests
+              My Requests
             </Link>
             <Link
               to="/offers"

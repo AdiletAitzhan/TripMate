@@ -34,7 +34,7 @@ export function Login() {
       const res = await authApi.login(trimmedEmail, password);
       if (res.success && res.data) {
         setTokens(res.data.user, res.data.accessToken, res.data.refreshToken);
-        navigate("/dashboard", { replace: true });
+        navigate("/home", { replace: true });
       } else {
         setError(res.error?.message ?? "Invalid email or password");
       }

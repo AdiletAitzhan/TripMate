@@ -1,58 +1,65 @@
-import { useCallback } from "react"
-import { useFetchWithAuth } from "./useFetchWithAuth"
+import { useCallback } from "react";
+import { useFetchWithAuth } from "./useFetchWithAuth";
+import { useAuth } from "../context/useAuth";
 import type {
   CreateTripRequestRequest,
   TripRequestPageResponse,
   TripRequestResponse,
   TripRequestUpdateResponse,
   UpdateTripRequestRequest,
-} from "../types/tripRequest"
+} from "../types/tripRequest";
+import { mockTripRequestsApi } from "../api/mockTripRequestsApi";
 
-const BASE = import.meta.env.VITE_API_BASE_URL ?? ""
+const BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+const USE_MOCK = true;
 
 function apiUrl(path: string): string {
-  const base = BASE.replace(/\/$/, "")
-  const p = path.startsWith("/") ? path : `/${path}`
-  return `${base}${p}`
+  const base = BASE.replace(/\/$/, "");
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return `${base}${p}`;
 }
 
 function extractError(data: unknown): string {
-  const d = data as { error?: { message?: string }; message?: string }
-  return d?.error?.message ?? d?.message ?? "Request failed"
+  const d = data as { error?: { message?: string }; message?: string };
+  return d?.error?.message ?? d?.message ?? "Request failed";
 }
 
 export function useTripRequestsApi() {
-  const fetchWithAuth = useFetchWithAuth()
+  const fetchWithAuth = useFetchWithAuth();
+  const { user } = useAuth();
 
   const getAllRequests = useCallback(async () => {
-    const res = await fetchWithAuth(apiUrl("/api/trip-requests"))
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(extractError(data))
-    return data as { success: boolean; data: TripRequestResponse[] }
-  }, [fetchWithAuth])
+    if (USE_MOCK) {
+      return mockTripRequestsApi.getAllRequests();
+    }
+    const res = await fetchWithAuth(apiUrl("/api/trip-requests"));
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(extractError(data));
+    return data as { success: boolean; data: TripRequestResponse[] };
+  }, [fetchWithAuth]);
 
   const getMyRequests = useCallback(
-    async (params?: {
-      status?: string
-      page?: number
-      limit?: number
-    }) => {
-      const sp = new URLSearchParams()
-      if (params?.status) sp.set("status", params.status)
-      sp.set("page", String(params?.page ?? 1))
-      sp.set("limit", String(params?.limit ?? 10))
-      const res = await fetchWithAuth(
-        apiUrl(`/api/trip-requests/me?${sp}`)
-      )
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(extractError(data))
-      return data as { success: boolean; data: TripRequestPageResponse }
+    async (params?: { status?: string; page?: number; limit?: number }) => {
+      if (USE_MOCK && user?.id) {
+        return mockTripRequestsApi.getMyRequests(user.id, params);
+      }
+      const sp = new URLSearchParams();
+      if (params?.status) sp.set("status", params.status);
+      sp.set("page", String(params?.page ?? 1));
+      sp.set("limit", String(params?.limit ?? 10));
+      const res = await fetchWithAuth(apiUrl(`/api/trip-requests/me?${sp}`));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(extractError(data));
+      return data as { success: boolean; data: TripRequestPageResponse };
     },
-    [fetchWithAuth]
-  )
+    [fetchWithAuth, user],
+  );
 
   const createRequest = useCallback(
     async (body: CreateTripRequestRequest) => {
+      if (USE_MOCK && user?.id) {
+        return mockTripRequestsApi.createRequest(user.id, body);
+      }
       const res = await fetchWithAuth(apiUrl("/api/trip-requests"), {
         method: "POST",
         headers: {
@@ -60,28 +67,40 @@ export function useTripRequestsApi() {
           Accept: "application/json",
         },
         body: JSON.stringify(body),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(extractError(data))
-      return data as { success: boolean; data: TripRequestResponse }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(extractError(data));
+      return data as { success: boolean; data: TripRequestResponse };
     },
-    [fetchWithAuth]
-  )
+    [fetchWithAuth, user],
+  );
 
   const getById = useCallback(
     async (requestId: string) => {
+      if (USE_MOCK) {
+        const result = await mockTripRequestsApi.getById(requestId);
+        if (!result.success)
+          throw new Error(result.error?.message ?? "Not found");
+        return { success: true, data: result.data! };
+      }
       const res = await fetchWithAuth(
-        apiUrl(`/api/trip-requests/${requestId}`)
-      )
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(extractError(data))
-      return data as { success: boolean; data: TripRequestResponse }
+        apiUrl(`/api/trip-requests/${requestId}`),
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(extractError(data));
+      return data as { success: boolean; data: TripRequestResponse };
     },
-    [fetchWithAuth]
-  )
+    [fetchWithAuth],
+  );
 
   const updateRequest = useCallback(
     async (requestId: string, body: UpdateTripRequestRequest) => {
+      if (USE_MOCK) {
+        const result = await mockTripRequestsApi.updateRequest(requestId, body);
+        if (!result.success)
+          throw new Error(result.error?.message ?? "Update failed");
+        return { success: true, data: result.data! };
+      }
       const res = await fetchWithAuth(
         apiUrl(`/api/trip-requests/${requestId}`),
         {
@@ -91,27 +110,33 @@ export function useTripRequestsApi() {
             Accept: "application/json",
           },
           body: JSON.stringify(body),
-        }
-      )
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(extractError(data))
-      return data as { success: boolean; data: TripRequestUpdateResponse }
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(extractError(data));
+      return data as { success: boolean; data: TripRequestUpdateResponse };
     },
-    [fetchWithAuth]
-  )
+    [fetchWithAuth],
+  );
 
   const deleteRequest = useCallback(
     async (requestId: string) => {
+      if (USE_MOCK) {
+        const result = await mockTripRequestsApi.deleteRequest(requestId);
+        if (!result.success)
+          throw new Error(result.error?.message ?? "Delete failed");
+        return { success: true, message: result.message };
+      }
       const res = await fetchWithAuth(
         apiUrl(`/api/trip-requests/${requestId}`),
-        { method: "DELETE" }
-      )
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(extractError(data))
-      return data as { success: boolean; message?: string }
+        { method: "DELETE" },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(extractError(data));
+      return data as { success: boolean; message?: string };
     },
-    [fetchWithAuth]
-  )
+    [fetchWithAuth],
+  );
 
   return {
     getAllRequests,
@@ -120,5 +145,5 @@ export function useTripRequestsApi() {
     getById,
     updateRequest,
     deleteRequest,
-  }
+  };
 }

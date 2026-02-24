@@ -16,10 +16,10 @@ export function Landing() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
-  // Redirect authenticated users to dashboard
+  // Redirect authenticated users to home
   useEffect(() => {
     if (isReady && accessToken) {
-      navigate("/dashboard", { replace: true });
+      navigate("/home", { replace: true });
     }
   }, [isReady, accessToken, navigate]);
 
@@ -59,7 +59,9 @@ export function Landing() {
 
   // Reveal on scroll
   useEffect(() => {
-    const elements = Array.from(document.querySelectorAll<HTMLElement>(".reveal"));
+    const elements = Array.from(
+      document.querySelectorAll<HTMLElement>(".reveal"),
+    );
     if (!elements.length) return;
 
     const observer = new IntersectionObserver(
@@ -89,21 +91,18 @@ export function Landing() {
 
   const IconCompass = (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"
-        strokeWidth="1.8"
-      />
+      <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" strokeWidth="1.8" />
       <path d="M14.9 9.1 13 13l-3.9 1.9L11 11l3.9-1.9Z" strokeWidth="1.8" />
-      <path d="M12 7.5v.01M12 16.5v.01M7.5 12v.01M16.5 12v.01" strokeWidth="2.2" />
+      <path
+        d="M12 7.5v.01M12 16.5v.01M7.5 12v.01M16.5 12v.01"
+        strokeWidth="2.2"
+      />
     </svg>
   );
 
   const IconMap = (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M9 18 3 20V6l6-2 6 2 6-2v14l-6 2-6-2Z"
-        strokeWidth="1.8"
-      />
+      <path d="M9 18 3 20V6l6-2 6 2 6-2v14l-6 2-6-2Z" strokeWidth="1.8" />
       <path d="M9 4v14M15 6v14" strokeWidth="1.8" />
     </svg>
   );
@@ -191,7 +190,11 @@ export function Landing() {
                 </Link>
               </li>
               <li>
-                <Link to="/signup" className="btn btn-primary" onClick={closeMenu}>
+                <Link
+                  to="/signup"
+                  className="btn btn-primary"
+                  onClick={closeMenu}
+                >
                   Get started
                 </Link>
               </li>
@@ -209,9 +212,9 @@ export function Landing() {
                 Find your travel tribe. <span>Plan together.</span>
               </h1>
               <p>
-                Match with like-minded travelers, build shared itineraries, split costs,
-                and explore the world with people who get it. No more solo planning—
-                adventure is better together.
+                Match with like-minded travelers, build shared itineraries,
+                split costs, and explore the world with people who get it. No
+                more solo planning— adventure is better together.
               </p>
               <div className="hero-ctas">
                 <Link to="/signup" className="btn btn-primary">
@@ -228,7 +231,9 @@ export function Landing() {
               <div className="hero-card-stack">
                 <div className="hero-card">
                   <div className="hero-card-title">Tokyo · March 2026</div>
-                  <div className="hero-card-meta">Food & culture · 3 travelers</div>
+                  <div className="hero-card-meta">
+                    Food & culture · 3 travelers
+                  </div>
                   <div className="hero-card-avatars">
                     <span />
                     <span />
@@ -237,7 +242,9 @@ export function Landing() {
                 </div>
                 <div className="hero-card">
                   <div className="hero-card-title">Iceland · Adventure</div>
-                  <div className="hero-card-meta">Hiking & photography · 2 travelers</div>
+                  <div className="hero-card-meta">
+                    Hiking & photography · 2 travelers
+                  </div>
                   <div className="hero-card-avatars">
                     <span />
                     <span />
@@ -245,7 +252,9 @@ export function Landing() {
                 </div>
                 <div className="hero-card">
                   <div className="hero-card-title">Bali · Budget trip</div>
-                  <div className="hero-card-meta">Beach & wellness · 4 travelers</div>
+                  <div className="hero-card-meta">
+                    Beach & wellness · 4 travelers
+                  </div>
                   <div className="hero-card-avatars">
                     <span />
                     <span />
@@ -262,7 +271,9 @@ export function Landing() {
           <div className="container">
             <div className="features-header">
               <p className="section-label reveal">What’s inside</p>
-              <h2 className="section-title reveal">Everything you need to travel together</h2>
+              <h2 className="section-title reveal">
+                Everything you need to travel together
+              </h2>
               <p className="section-desc reveal">
                 From matching to splitting bills—one place for your whole trip.
               </p>
@@ -273,25 +284,25 @@ export function Landing() {
                 <div className="feature-icon match">{IconCompass}</div>
                 <h3>Smart matching</h3>
                 <p>
-                  Get matched by interests—adventure, culture, food, budget, or luxury.
-                  Filter by destination and dates, and find travel companions who share
-                  your pace and style.
+                  Get matched by interests—adventure, culture, food, budget, or
+                  luxury. Filter by destination and dates, and find travel
+                  companions who share your pace and style.
                 </p>
               </article>
               <article className="feature-card reveal reveal-delay-1">
                 <div className="feature-icon plan">{IconMap}</div>
                 <h3>Collaborative planning</h3>
                 <p>
-                  Shared itineraries, maps, and votes. Build mood boards, store docs, and
-                  keep everyone aligned as plans evolve.
+                  Shared itineraries, maps, and votes. Build mood boards, store
+                  docs, and keep everyone aligned as plans evolve.
                 </p>
               </article>
               <article className="feature-card reveal reveal-delay-2">
                 <div className="feature-icon money">{IconCard}</div>
                 <h3>Expenses & splitting</h3>
                 <p>
-                  Track and split costs across currencies. Settle up clearly so nobody’s
-                  guessing who owes what.
+                  Track and split costs across currencies. Settle up clearly so
+                  nobody’s guessing who owes what.
                 </p>
               </article>
             </div>
@@ -301,23 +312,24 @@ export function Landing() {
                 <div className="feature-icon match">{IconChat}</div>
                 <h3>Chat & coordination</h3>
                 <p>
-                  Group chat, polls, meeting points, and updates—built around your trip
-                  so plans stay in sync.
+                  Group chat, polls, meeting points, and updates—built around
+                  your trip so plans stay in sync.
                 </p>
               </article>
               <article className="feature-card reveal reveal-delay-2">
                 <div className="feature-icon plan">{IconCamera}</div>
                 <h3>Destination content</h3>
                 <p>
-                  Local tips, guides, and hidden gems—so you travel smarter, not harder.
+                  Local tips, guides, and hidden gems—so you travel smarter, not
+                  harder.
                 </p>
               </article>
               <article className="feature-card reveal reveal-delay-3">
                 <div className="feature-icon money">{IconGlobe}</div>
                 <h3>Accessible & global</h3>
                 <p>
-                  Keyboard-friendly UI, strong contrast, and a platform built for travel
-                  across regions and time zones.
+                  Keyboard-friendly UI, strong contrast, and a platform built
+                  for travel across regions and time zones.
                 </p>
               </article>
             </div>
@@ -327,31 +339,42 @@ export function Landing() {
         <section className="how" id="how">
           <div className="container">
             <p className="section-label reveal">Simple steps</p>
-            <h2 className="section-title reveal">From stranger to travel buddy in minutes</h2>
+            <h2 className="section-title reveal">
+              From stranger to travel buddy in minutes
+            </h2>
             <p className="section-desc reveal">
-              Create your profile, set preferences, discover matches, and start planning
-              your first shared trip.
+              Create your profile, set preferences, discover matches, and start
+              planning your first shared trip.
             </p>
             <div className="how-steps">
               <div className="step reveal">
                 <div className="step-num">1</div>
                 <h3>Sign up & profile</h3>
-                <p>Add travel preferences, budget, pace, and verify your account.</p>
+                <p>
+                  Add travel preferences, budget, pace, and verify your account.
+                </p>
               </div>
               <div className="step reveal reveal-delay-1">
                 <div className="step-num">2</div>
                 <h3>Discover matches</h3>
-                <p>Filter by destination, dates, and interests. Find your tribe.</p>
+                <p>
+                  Filter by destination, dates, and interests. Find your tribe.
+                </p>
               </div>
               <div className="step reveal reveal-delay-2">
                 <div className="step-num">3</div>
                 <h3>Plan together</h3>
-                <p>Create a shared trip, build the itinerary, and coordinate as a group.</p>
+                <p>
+                  Create a shared trip, build the itinerary, and coordinate as a
+                  group.
+                </p>
               </div>
               <div className="step reveal reveal-delay-3">
                 <div className="step-num">4</div>
                 <h3>Travel & settle</h3>
-                <p>Split costs clearly, keep receipts, and wrap up with reviews.</p>
+                <p>
+                  Split costs clearly, keep receipts, and wrap up with reviews.
+                </p>
               </div>
             </div>
           </div>
@@ -362,7 +385,9 @@ export function Landing() {
             <div className="trips-section-header">
               <div>
                 <p className="section-label reveal">Explore</p>
-                <h2 className="section-title reveal">Available trip requests</h2>
+                <h2 className="section-title reveal">
+                  Available trip requests
+                </h2>
                 <p className="section-desc reveal">
                   Browse real trips created by the community and offer to join.
                 </p>
@@ -381,7 +406,9 @@ export function Landing() {
             )}
             {!loading && !error && tripRequests.length === 0 && (
               <div className="trips-empty">
-                <p>No trip requests available at the moment. Check back soon.</p>
+                <p>
+                  No trip requests available at the moment. Check back soon.
+                </p>
               </div>
             )}
             {!loading && !error && tripRequests.length > 0 && (
@@ -404,8 +431,8 @@ export function Landing() {
               <p className="section-label">Ready to go</p>
               <h2 className="section-title">Your next adventure starts here</h2>
               <p className="section-desc">
-                Join TripMate free. Upgrade for advanced matching, verified badges, and
-                featured experiences when you need more.
+                Join TripMate free. Upgrade for advanced matching, verified
+                badges, and featured experiences when you need more.
               </p>
               <Link to="/signup" className="btn btn-primary">
                 Create free account
@@ -435,7 +462,9 @@ export function Landing() {
                 <a href="#">Contact</a>
               </li>
             </ul>
-            <span className="footer-copy">© TripMate. Find your travel tribe.</span>
+            <span className="footer-copy">
+              © TripMate. Find your travel tribe.
+            </span>
           </div>
         </div>
       </footer>
