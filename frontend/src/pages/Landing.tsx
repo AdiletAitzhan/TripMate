@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { TripSearch } from "../components/TripSearch";
 import { TripCard } from "../components/TripCard";
 import { useAuth } from "../context/useAuth";
+import { useTheme } from "../context/useTheme";
 import type { TripVacancyResponse } from "../types/tripRequest";
 
 const BASE = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -10,11 +11,19 @@ const BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 export function Landing() {
   const navigate = useNavigate();
   const { accessToken, isReady } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [tripVacancies, setTripVacancies] = useState<TripVacancyResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+
+  // Force light mode on landing page
+  useEffect(() => {
+    if (theme !== "light") {
+      toggleTheme();
+    }
+  }, []);
 
   // Redirect authenticated users to home
   useEffect(() => {

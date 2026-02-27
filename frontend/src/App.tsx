@@ -6,8 +6,9 @@ import { Landing } from "./pages/Landing";
 import { Home } from "./pages/Home";
 import { Profile } from "./pages/Profile";
 import { ProfileCreation } from "./pages/ProfileCreation";
-import { Requests } from "./pages/Requests";
 import { TripRequestDetail } from "./pages/TripRequestDetail";
+import { Offers } from "./pages/Offers";
+import { MyVacancies } from "./pages/MyVacancies";
 import { Login } from "./pages/Login";
 import { SignUpOptions } from "./pages/SignUpOptions";
 import { ManualRegistration } from "./pages/ManualRegistration";
@@ -49,10 +50,18 @@ function App() {
               }
             />
             <Route
-              path="/requests"
+              path="/my-vacancies"
               element={
                 <PrivateRoute>
-                  <Requests />
+                  <MyVacancies />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/offers"
+              element={
+                <PrivateRoute>
+                  <Offers />
                 </PrivateRoute>
               }
             />

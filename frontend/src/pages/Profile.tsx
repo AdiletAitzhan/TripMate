@@ -420,8 +420,8 @@ export function Profile() {
 
           <nav>
             <Link
-              to="/"
-              className={`sidebar-link ${location.pathname === "/" ? "active" : ""}`}
+              to="/home"
+              className={`sidebar-link ${location.pathname === "/home" ? "active" : ""}`}
               onClick={closeSidebar}
             >
               Home
@@ -434,18 +434,18 @@ export function Profile() {
               Profile
             </Link>
             <Link
-              to="/requests"
-              className={`sidebar-link ${location.pathname === "/requests" ? "active" : ""}`}
+              to="/my-vacancies"
+              className={`sidebar-link ${location.pathname === "/my-vacancies" ? "active" : ""}`}
               onClick={closeSidebar}
             >
-              Requests
+              My Vacancies
             </Link>
             <Link
               to="/offers"
               className={`sidebar-link ${location.pathname === "/offers" ? "active" : ""}`}
               onClick={closeSidebar}
             >
-              Offers
+              My Offers
             </Link>
           </nav>
 

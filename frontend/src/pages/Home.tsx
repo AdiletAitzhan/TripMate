@@ -4,10 +4,13 @@ import { NotificationButton } from "../components/NotificationButton";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { CitySearchBar } from "../components/CitySearchBar";
 import { FilterModal } from "../components/FilterModal";
+import { ProfileModal } from "../components/ProfileModal";
 import type { FilterValues } from "../components/AdvancedFilterSearch";
 import { useAuth } from "../context/useAuth";
 import { useTripVacanciesApi } from "../hooks/useTripVacanciesApi";
+import { profilesApi } from "../api/profilesApi";
 import type { TripVacancyResponse } from "../types/tripRequest";
+import type { ProfileDetailResponse } from "../types/profile";
 
 function formatDate(s: string | undefined): string {
   if (!s) return "—";
@@ -59,6 +62,13 @@ export function Home() {
     mustHave: {},
     niceToHave: {},
   });
+
+  // Profile modal state
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [selectedProfile, setSelectedProfile] =
+    useState<ProfileDetailResponse | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   const loadVacancies = () => {
     setLoading(true);
@@ -219,6 +229,34 @@ export function Home() {
     navigate("/login", { replace: true });
   };
 
+  const handleViewProfile = async (
+    requesterId: number,
+    e: React.MouseEvent,
+  ) => {
+    e.preventDefault(); // Prevent navigation to request detail
+    e.stopPropagation();
+
+    setIsProfileModalOpen(true);
+    setProfileLoading(true);
+    setProfileError(null);
+    setSelectedProfile(null);
+
+    try {
+      const profile = await profilesApi.getProfile(requesterId);
+      setSelectedProfile(profile);
+    } catch (error) {
+      setProfileError((error as Error).message || "Failed to load profile");
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const closeProfileModal = () => {
+    setIsProfileModalOpen(false);
+    setSelectedProfile(null);
+    setProfileError(null);
+  };
+
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   const closeSidebar = () => setIsSidebarOpen(false);
 
@@ -265,18 +303,18 @@ export function Home() {
               Profile
             </Link>
             <Link
-              to="/requests"
-              className={`sidebar-link ${location.pathname === "/requests" ? "active" : ""}`}
+              to="/my-vacancies"
+              className={`sidebar-link ${location.pathname === "/my-vacancies" ? "active" : ""}`}
               onClick={closeSidebar}
             >
-              Requests
+              My Vacancies
             </Link>
             <Link
               to="/offers"
               className={`sidebar-link ${location.pathname === "/offers" ? "active" : ""}`}
               onClick={closeSidebar}
             >
-              Offers
+              My Offers
             </Link>
           </nav>
           <div className="spacer" />
@@ -403,86 +441,128 @@ export function Home() {
               }}
             >
               {filteredVacancies.map((v) => (
-                <Link
+                <div
                   key={v.id}
-                  to={`/requests/${v.id}`}
                   className="card-premium"
                   style={{
                     padding: 24,
                     display: "flex",
                     flexDirection: "column",
                     gap: 12,
-                    cursor: "pointer",
-                    textDecoration: "none",
-                    color: "inherit",
+                    position: "relative",
                   }}
                 >
-                  <div style={{ flex: 1 }}>
-                    <h3
-                      style={{
-                        fontSize: "1.125rem",
-                        fontWeight: 600,
-                        color: "var(--text)",
-                        margin: "0 0 12px",
-                      }}
-                    >
-                      {formatVacancyDestination(v)}
-                    </h3>
+                  {/* Profile Button */}
+                  <button
+                    onClick={(e) => handleViewProfile(v.requester_id, e)}
+                    type="button"
+                    style={{
+                      position: "absolute",
+                      top: "16px",
+                      right: "16px",
+                      background: "var(--bg-elevated)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "20px",
+                      padding: "6px 12px",
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      color: "var(--primary)",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                      zIndex: 10,
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.background = "var(--primary)";
+                      e.currentTarget.style.color = "white";
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.background = "var(--bg-elevated)";
+                      e.currentTarget.style.color = "var(--primary)";
+                    }}
+                  >
+                    View Profile
+                  </button>
 
-                    <div style={{ marginBottom: 12 }}>
-                      <p
+                  <Link
+                    to={`/requests/${v.id}`}
+                    style={{
+                      textDecoration: "none",
+                      color: "inherit",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "12px",
+                      flex: 1,
+                    }}
+                  >
+                    <div style={{ flex: 1, paddingTop: "8px" }}>
+                      <h3
                         style={{
-                          fontSize: "0.8125rem",
-                          color: "var(--text-muted)",
-                          margin: "0 0 4px",
-                          fontWeight: 500,
+                          fontSize: "1.125rem",
+                          fontWeight: 600,
+                          color: "var(--text)",
+                          margin: "0 0 12px",
                         }}
                       >
-                        <strong style={{ color: "var(--text)" }}>Dates:</strong>{" "}
-                        {formatDate(v.start_date)} — {formatDate(v.end_date)}
-                      </p>
-                      <p
-                        style={{
-                          fontSize: "0.8125rem",
-                          color: "var(--text-muted)",
-                          margin: "0 0 4px",
-                          fontWeight: 500,
-                        }}
-                      >
-                        <strong style={{ color: "var(--text)" }}>
-                          Budget:
-                        </strong>{" "}
-                        {formatVacancyBudget(v)}
-                      </p>
-                      <p
-                        style={{
-                          fontSize: "0.8125rem",
-                          color: "var(--text-muted)",
-                          margin: 0,
-                          fontWeight: 500,
-                        }}
-                      >
-                        <strong style={{ color: "var(--text)" }}>
-                          People needed:
-                        </strong>{" "}
-                        {v.people_needed}
-                      </p>
+                        {formatVacancyDestination(v)}
+                      </h3>
+
+                      <div style={{ marginBottom: 12 }}>
+                        <p
+                          style={{
+                            fontSize: "0.8125rem",
+                            color: "var(--text-muted)",
+                            margin: "0 0 4px",
+                            fontWeight: 500,
+                          }}
+                        >
+                          <strong style={{ color: "var(--text)" }}>
+                            Dates:
+                          </strong>{" "}
+                          {formatDate(v.start_date)} — {formatDate(v.end_date)}
+                        </p>
+                        <p
+                          style={{
+                            fontSize: "0.8125rem",
+                            color: "var(--text-muted)",
+                            margin: "0 0 4px",
+                            fontWeight: 500,
+                          }}
+                        >
+                          <strong style={{ color: "var(--text)" }}>
+                            Budget:
+                          </strong>{" "}
+                          {formatVacancyBudget(v)}
+                        </p>
+                        <p
+                          style={{
+                            fontSize: "0.8125rem",
+                            color: "var(--text-muted)",
+                            margin: 0,
+                            fontWeight: 500,
+                          }}
+                        >
+                          <strong style={{ color: "var(--text)" }}>
+                            People needed:
+                          </strong>{" "}
+                          {v.people_needed}
+                        </p>
+                      </div>
+
+                      {v.description && (
+                        <p
+                          style={{
+                            fontSize: "0.875rem",
+                            color: "var(--text-muted)",
+                            margin: 0,
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          {v.description}
+                        </p>
+                      )}
                     </div>
-
-                    {v.description && (
-                      <p
-                        style={{
-                          fontSize: "0.875rem",
-                          color: "var(--text-muted)",
-                          margin: 0,
-                          lineHeight: 1.5,
-                        }}
-                      >
-                        {v.description}
-                      </p>
-                    )}
-                  </div>
-                </Link>
+                  </Link>
+                </div>
               ))}
             </div>
           )}
@@ -499,6 +579,14 @@ export function Home() {
         filters={filters}
         onFiltersChange={setFilters}
         onClear={clearAllFilters}
+      />
+
+      <ProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={closeProfileModal}
+        profile={selectedProfile}
+        loading={profileLoading}
+        error={profileError}
       />
     </>
   );

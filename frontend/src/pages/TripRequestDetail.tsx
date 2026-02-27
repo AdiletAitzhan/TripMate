@@ -2,9 +2,15 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { NotificationButton } from "../components/NotificationButton";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { ProfileModal } from "../components/ProfileModal";
+import { JoinTripModal } from "../components/JoinTripModal";
 import { useAuth } from "../context/useAuth";
 import { useTripVacanciesApi } from "../hooks/useTripVacanciesApi";
+import { profilesApi } from "../api/profilesApi";
+import { offersApi } from "../api/offersApi";
 import type { TripVacancyResponse } from "../types/tripRequest";
+import type { ProfileDetailResponse } from "../types/profile";
+import type { OfferCreateRequest } from "../types/offer";
 
 function formatDate(s: string | undefined): string {
   if (!s) return "—";
@@ -71,6 +77,17 @@ export function TripRequestDetail() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
+  // Profile modal state
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [selectedProfile, setSelectedProfile] =
+    useState<ProfileDetailResponse | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  // Join trip modal state
+  const [isJoinTripModalOpen, setIsJoinTripModalOpen] = useState(false);
+  const [offerSuccess, setOfferSuccess] = useState(false);
+
   useEffect(() => {
     if (!id || !isReady || (!accessToken && !refreshToken)) {
       setLoading(false);
@@ -112,9 +129,47 @@ export function TripRequestDetail() {
     navigate("/login", { replace: true });
   };
 
+  const handleViewProfile = async () => {
+    if (!vacancy) return;
+
+    setIsProfileModalOpen(true);
+    setProfileLoading(true);
+    setProfileError(null);
+    setSelectedProfile(null);
+
+    try {
+      const profile = await profilesApi.getProfile(vacancy.requester_id);
+      setSelectedProfile(profile);
+    } catch (error) {
+      setProfileError((error as Error).message || "Failed to load profile");
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const closeProfileModal = () => {
+    setIsProfileModalOpen(false);
+    setSelectedProfile(null);
+    setProfileError(null);
+  };
+
+  const handleJoinTrip = () => {
+    setIsJoinTripModalOpen(true);
+    setOfferSuccess(false);
+  };
+
+  const handleSubmitOffer = async (data: OfferCreateRequest) => {
+    await offersApi.create(data);
+    setOfferSuccess(true);
+    // Optionally show a success message
+    setTimeout(() => {
+      setOfferSuccess(false);
+    }, 5000);
+  };
+
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   const closeSidebar = () => setIsSidebarOpen(false);
-  const goBack = () => navigate("/requests");
+  const goBack = () => navigate("/home");
 
   return (
     <>
@@ -159,18 +214,18 @@ export function TripRequestDetail() {
               Profile
             </Link>
             <Link
-              to="/requests"
-              className={`sidebar-link ${location.pathname.startsWith("/requests") ? "active" : ""}`}
+              to="/my-vacancies"
+              className={`sidebar-link ${location.pathname === "/my-vacancies" ? "active" : ""}`}
               onClick={closeSidebar}
             >
-              Requests
+              My Vacancies
             </Link>
             <Link
               to="/offers"
               className={`sidebar-link ${location.pathname === "/offers" ? "active" : ""}`}
               onClick={closeSidebar}
             >
-              Offers
+              My Offers
             </Link>
           </nav>
           <div className="spacer" />
@@ -206,6 +261,23 @@ export function TripRequestDetail() {
           className="app-content"
           style={{ padding: 32, maxWidth: 700, margin: "0 auto" }}
         >
+          {offerSuccess && (
+            <div
+              style={{
+                padding: "12px 16px",
+                background: "var(--status-success-bg)",
+                border: "1px solid var(--status-success-border)",
+                borderRadius: "8px",
+                marginBottom: "16px",
+                color: "var(--status-success)",
+                fontSize: "0.9375rem",
+                fontWeight: 500,
+              }}
+            >
+              ✓ Your offer has been submitted successfully!
+            </div>
+          )}
+
           <button
             type="button"
             onClick={goBack}
@@ -217,9 +289,9 @@ export function TripRequestDetail() {
               marginBottom: 24,
               padding: "8px 16px",
             }}
-            aria-label="Back to requests"
+            aria-label="Back to home"
           >
-            ← Back to Trip Vacancies
+            ← Back to Home
           </button>
 
           {loading ? (
@@ -297,6 +369,43 @@ export function TripRequestDetail() {
                         {vacancy.status}
                       </span>
                     )}
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 12,
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <button
+                      onClick={handleViewProfile}
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "12px 24px",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      👤 View Profile
+                    </button>
+                    <button
+                      onClick={handleJoinTrip}
+                      type="button"
+                      className="btn btn-primary"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "12px 24px",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      ✈️ Join Trip
+                    </button>
                   </div>
                 </div>
               </div>
@@ -699,6 +808,24 @@ export function TripRequestDetail() {
           © 2026 TripMate. Travel together, explore forever.
         </footer>
       </div>
+
+      <ProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={closeProfileModal}
+        profile={selectedProfile}
+        loading={profileLoading}
+        error={profileError}
+      />
+
+      {vacancy && (
+        <JoinTripModal
+          isOpen={isJoinTripModalOpen}
+          onClose={() => setIsJoinTripModalOpen(false)}
+          onSubmit={handleSubmitOffer}
+          tripVacancyId={vacancy.id}
+          maxBudget={vacancy.max_budget}
+        />
+      )}
     </>
   );
 }
