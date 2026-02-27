@@ -1,3 +1,66 @@
+// Trip Vacancy Types - matching OpenAPI spec
+
+export interface TripVacancyCreateRequest {
+  destination_city: string;
+  destination_country: string;
+  start_date: string;
+  end_date: string;
+  min_budget?: number | string | null;
+  max_budget?: number | string | null;
+  people_needed: number;
+  description?: string | null;
+  planned_activities?: string | null;
+  planned_destinations?: string | null;
+  transportation_preference?: string | null;
+  accommodation_preference?: string | null;
+  min_age?: number | null;
+  max_age?: number | null;
+  gender_preference?: string | null;
+}
+
+export interface TripVacancyUpdateRequest {
+  destination_city?: string | null;
+  destination_country?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  min_budget?: number | string | null;
+  max_budget?: number | string | null;
+  people_needed?: number | null;
+  description?: string | null;
+  planned_activities?: string | null;
+  planned_destinations?: string | null;
+  transportation_preference?: string | null;
+  accommodation_preference?: string | null;
+  min_age?: number | null;
+  max_age?: number | null;
+  gender_preference?: string | null;
+  status?: string | null;
+}
+
+export interface TripVacancyResponse {
+  id: number;
+  requester_id: number;
+  destination_city: string;
+  destination_country: string;
+  start_date: string;
+  end_date: string;
+  min_budget?: string | null;
+  max_budget?: string | null;
+  people_needed: number;
+  description?: string | null;
+  planned_activities?: string | null;
+  planned_destinations?: string | null;
+  transportation_preference?: string | null;
+  accommodation_preference?: string | null;
+  min_age?: number | null;
+  max_age?: number | null;
+  gender_preference?: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Legacy types for backward compatibility
 export interface DestinationDto {
   city?: string;
   country?: string;

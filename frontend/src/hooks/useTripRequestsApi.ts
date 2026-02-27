@@ -11,7 +11,7 @@ import type {
 import { mockTripRequestsApi } from "../api/mockTripRequestsApi";
 
 const BASE = import.meta.env.VITE_API_BASE_URL ?? "";
-const USE_MOCK = true;
+const USE_MOCK = false;
 
 function apiUrl(path: string): string {
   const base = BASE.replace(/\/$/, "");
@@ -32,7 +32,7 @@ export function useTripRequestsApi() {
     if (USE_MOCK) {
       return mockTripRequestsApi.getAllRequests();
     }
-    const res = await fetchWithAuth(apiUrl("/api/trip-requests"));
+    const res = await fetchWithAuth(apiUrl("/api/v1/trip-vacancies"));
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(extractError(data));
     return data as { success: boolean; data: TripRequestResponse[] };
@@ -47,7 +47,9 @@ export function useTripRequestsApi() {
       if (params?.status) sp.set("status", params.status);
       sp.set("page", String(params?.page ?? 1));
       sp.set("limit", String(params?.limit ?? 10));
-      const res = await fetchWithAuth(apiUrl(`/api/trip-requests/me?${sp}`));
+      const res = await fetchWithAuth(
+        apiUrl(`/api/v1/trip-vacancies/me?${sp}`),
+      );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(extractError(data));
       return data as { success: boolean; data: TripRequestPageResponse };
@@ -60,7 +62,7 @@ export function useTripRequestsApi() {
       if (USE_MOCK && user?.id) {
         return mockTripRequestsApi.createRequest(user.id, body);
       }
-      const res = await fetchWithAuth(apiUrl("/api/trip-requests"), {
+      const res = await fetchWithAuth(apiUrl("/api/v1/trip-vacancies"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -84,7 +86,7 @@ export function useTripRequestsApi() {
         return { success: true, data: result.data! };
       }
       const res = await fetchWithAuth(
-        apiUrl(`/api/trip-requests/${requestId}`),
+        apiUrl(`/api/v1/trip-vacancies/${requestId}`),
       );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(extractError(data));
@@ -102,7 +104,7 @@ export function useTripRequestsApi() {
         return { success: true, data: result.data! };
       }
       const res = await fetchWithAuth(
-        apiUrl(`/api/trip-requests/${requestId}`),
+        apiUrl(`/api/v1/trip-vacancies/${requestId}`),
         {
           method: "PUT",
           headers: {
@@ -128,7 +130,7 @@ export function useTripRequestsApi() {
         return { success: true, message: result.message };
       }
       const res = await fetchWithAuth(
-        apiUrl(`/api/trip-requests/${requestId}`),
+        apiUrl(`/api/v1/trip-vacancies/${requestId}`),
         { method: "DELETE" },
       );
       const data = await res.json().catch(() => ({}));

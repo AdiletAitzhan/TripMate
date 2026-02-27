@@ -2,23 +2,13 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { authApi } from "../api/authApi";
 
-const GENDERS = [
-  { label: "Male", value: "MALE" },
-  { label: "Female", value: "FEMALE" },
-  { label: "Other", value: "OTHER" },
-];
-
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function ManualRegistration() {
   const navigate = useNavigate();
-  const [firstname, setFirstname] = useState("");
-  const [lastname, setLastname] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [dateOfBirth, setDateOfBirth] = useState("");
-  const [gender, setGender] = useState("");
   const [terms, setTerms] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -42,22 +32,8 @@ export function ManualRegistration() {
       setError("Please enter a valid email address");
       return;
     }
-    const trimmedFirst = firstname.trim();
-    const trimmedLast = lastname.trim();
-    if (!trimmedFirst) {
-      setError("First name is required");
-      return;
-    }
-    if (!trimmedLast) {
-      setError("Last name is required");
-      return;
-    }
-    if (!dateOfBirth) {
-      setError("Date of birth is required");
-      return;
-    }
-    if (!gender) {
-      setError("Gender is required");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
       return;
     }
     setLoading(true);
@@ -65,24 +41,30 @@ export function ManualRegistration() {
       const res = await authApi.register({
         email: trimmedEmail,
         password,
-        firstName: trimmedFirst,
-        lastName: trimmedLast,
-        dateOfBirth,
-        gender,
       });
-      if (res.success) {
-        navigate("/verify-email", { state: { email: trimmedEmail } });
+
+      // New API returns { user, message, verification_code }
+      if (res.user) {
+        navigate("/verify-email", {
+          state: {
+            email: trimmedEmail,
+            userId: res.user.id,
+            message: res.message,
+          },
+        });
       } else {
-        if (res.error?.code === "EMAIL_EXISTS") {
-          setError(
-            "This email is already registered. Try logging in or use another email.",
-          );
-        } else {
-          setError(res.error?.message ?? "Registration failed");
-        }
+        setError("Registration failed. Please try again.");
       }
-    } catch {
-      setError("Something went wrong. Try again.");
+    } catch (err) {
+      const errorMessage =
+        (err as Error).message || "Something went wrong. Try again.";
+      if (errorMessage.includes("already") || errorMessage.includes("exists")) {
+        setError(
+          "This email is already registered. Try logging in or use another email.",
+        );
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -101,31 +83,11 @@ export function ManualRegistration() {
             <div className="progress-fill" style={{ width: "50%" }} />
           </div>
           <h1 className="auth-heading">Create your account</h1>
-          <p className="auth-sub">We only need the basics.</p>
+          <p className="auth-sub">
+            We only need your email and password to get started.
+          </p>
 
           <form onSubmit={handleSubmit}>
-            <div className="input-wrap">
-              <label htmlFor="reg-firstname">First name</label>
-              <input
-                id="reg-firstname"
-                type="text"
-                className="input-field"
-                value={firstname}
-                onChange={(e) => setFirstname(e.target.value)}
-                required
-              />
-            </div>
-            <div className="input-wrap">
-              <label htmlFor="reg-lastname">Last name</label>
-              <input
-                id="reg-lastname"
-                type="text"
-                className="input-field"
-                value={lastname}
-                onChange={(e) => setLastname(e.target.value)}
-                required
-              />
-            </div>
             <div className="input-wrap">
               <label htmlFor="reg-email">Email</label>
               <input
@@ -151,8 +113,17 @@ export function ManualRegistration() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={6}
+                minLength={8}
               />
+              <div
+                style={{
+                  fontSize: "0.875rem",
+                  color: "var(--text-muted)",
+                  marginTop: 4,
+                }}
+              >
+                Must be at least 8 characters
+              </div>
             </div>
             <div className="input-wrap">
               <label htmlFor="reg-confirm">Confirm Password</label>
@@ -167,34 +138,6 @@ export function ManualRegistration() {
               {!passwordMatch && (
                 <div className="input-error">Passwords do not match</div>
               )}
-            </div>
-            <div className="input-wrap">
-              <label htmlFor="reg-dob">Date of Birth</label>
-              <input
-                id="reg-dob"
-                type="date"
-                className="input-field"
-                value={dateOfBirth}
-                onChange={(e) => setDateOfBirth(e.target.value)}
-                required
-              />
-            </div>
-            <div className="input-wrap">
-              <label htmlFor="reg-gender">Gender</label>
-              <select
-                id="reg-gender"
-                className="input-field"
-                value={gender}
-                onChange={(e) => setGender(e.target.value)}
-                required
-              >
-                <option value="">Select</option>
-                {GENDERS.map((g) => (
-                  <option key={g.value} value={g.value}>
-                    {g.label}
-                  </option>
-                ))}
-              </select>
             </div>
             <div className="checkbox-wrap">
               <input

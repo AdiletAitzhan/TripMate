@@ -6,8 +6,8 @@ import { CitySearchBar } from "../components/CitySearchBar";
 import { FilterModal } from "../components/FilterModal";
 import type { FilterValues } from "../components/AdvancedFilterSearch";
 import { useAuth } from "../context/useAuth";
-import { useTripRequestsApi } from "../hooks/useTripRequestsApi";
-import type { TripRequestResponse } from "../types/tripRequest";
+import { useTripVacanciesApi } from "../hooks/useTripVacanciesApi";
+import type { TripVacancyResponse } from "../types/tripRequest";
 
 function formatDate(s: string | undefined): string {
   if (!s) return "—";
@@ -19,43 +19,22 @@ function formatDate(s: string | undefined): string {
   });
 }
 
-function formatDestination(dest: TripRequestResponse["destination"]): string {
-  const parts = [dest?.city, dest?.country].filter(Boolean);
+function formatVacancyDestination(v: TripVacancyResponse): string {
+  const parts = [v.destination_city, v.destination_country].filter(Boolean);
   return parts.length ? parts.join(", ") : "—";
 }
 
-function formatBudget(budget: TripRequestResponse["budget"]): string {
-  if (!budget?.amount) return "—";
-  const curr = budget.currency ?? "USD";
-  return `${budget.amount} ${curr}`;
+function formatVacancyBudget(v: TripVacancyResponse): string {
+  const min = v.min_budget;
+  const max = v.max_budget;
+  if (!min && !max) return "—";
+  if (min && max) return `${min} - ${max} KZT`;
+  if (min) return `From ${min} KZT`;
+  if (max) return `Up to ${max} KZT`;
+  return "—";
 }
 
-function formatGender(genders: string[] | undefined): string {
-  if (!genders || genders.length === 0) return "Any";
-  return genders.join(", ");
-}
-
-function formatInterests(interests: string[] | undefined): string {
-  if (!interests || interests.length === 0) return "None";
-  return interests.join(", ");
-}
-
-const INTEREST_COLORS = [
-  { bg: "#E8D5F2", text: "#6B2D8F" }, // Purple
-  { bg: "#FFE5E5", text: "#C92A2A" }, // Red
-  { bg: "#D3F5F7", text: "#0C7792" }, // Cyan
-  { bg: "#FFF3C4", text: "#8B6914" }, // Yellow
-  { bg: "#C8E6C9", text: "#2E7D32" }, // Green
-  { bg: "#FFCCBC", text: "#D84315" }, // Orange
-  { bg: "#BBDEFB", text: "#1565C0" }, // Blue
-  { bg: "#F8BBD0", text: "#AD1457" }, // Pink
-];
-
-function getInterestColor(index: number) {
-  return INTEREST_COLORS[index % INTEREST_COLORS.length];
-}
-
-interface RequestWithMatch extends TripRequestResponse {
+interface VacancyWithMatch extends TripVacancyResponse {
   isApproximateMatch?: boolean;
   matchScore?: number;
 }
@@ -64,9 +43,9 @@ export function Requests() {
   const navigate = useNavigate();
   const location = useLocation();
   const { clearAuth, isReady, accessToken, refreshToken } = useAuth();
-  const { getAllRequests } = useTripRequestsApi();
+  const { getAllVacancies } = useTripVacanciesApi();
 
-  const [requests, setRequests] = useState<TripRequestResponse[]>([]);
+  const [vacancies, setVacancies] = useState<TripVacancyResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -79,15 +58,14 @@ export function Requests() {
     niceToHave: {},
   });
 
-  const loadRequests = () => {
+  const loadVacancies = () => {
     setLoading(true);
     setError(null);
-    getAllRequests()
-      .then((res) => {
-        const data = res.data;
-        setRequests(Array.isArray(data) ? data : []);
+    getAllVacancies()
+      .then((data) => {
+        setVacancies(Array.isArray(data) ? data : []);
       })
-      .catch((e) => setError(e?.message ?? "Failed to load requests"))
+      .catch((e) => setError(e?.message ?? "Failed to load vacancies"))
       .finally(() => setLoading(false));
   };
 
@@ -96,7 +74,7 @@ export function Requests() {
       setLoading(false);
       return;
     }
-    loadRequests();
+    loadVacancies();
   }, [isReady, accessToken, refreshToken]);
 
   const clearAllFilters = () => {
@@ -123,31 +101,39 @@ export function Requests() {
     );
   };
 
-  const filteredRequests = useMemo((): RequestWithMatch[] => {
-    let list: RequestWithMatch[] = requests.map((r) => ({ ...r }));
+  const filteredVacancies = useMemo((): VacancyWithMatch[] => {
+    let list: VacancyWithMatch[] = vacancies.map((v) => ({ ...v }));
 
-    // PRIMARY FILTER: Search City (Destination) - Required field
+    // PRIMARY FILTER: Search City (Destination)
     if (searchCity.trim()) {
-      list = list.filter((req) => {
-        const reqCity = req.destination?.city?.toLowerCase();
-        return reqCity && reqCity.includes(searchCity.toLowerCase());
+      list = list.filter((vacancy) => {
+        const vacancyCity = vacancy.destination_city?.toLowerCase();
+        return vacancyCity && vacancyCity.includes(searchCity.toLowerCase());
       });
     }
 
-    const { mustHave, niceToHave } = filters;
+    const { mustHave } = filters;
 
     // MUST HAVE FILTERS - Hard requirements (exclude if not met)
-    list = list.filter((req) => {
+    list = list.filter((vacancy) => {
       // Age filter
       if (mustHave.ageMin !== undefined || mustHave.ageMax !== undefined) {
-        const reqAgeMin = req.preferences?.mustHave?.ageRange?.min;
-        const reqAgeMax = req.preferences?.mustHave?.ageRange?.max;
+        const vacancyAgeMin = vacancy.min_age;
+        const vacancyAgeMax = vacancy.max_age;
 
-        if (mustHave.ageMin !== undefined && reqAgeMax !== undefined) {
-          if (reqAgeMax < mustHave.ageMin) return false;
+        if (
+          mustHave.ageMin !== undefined &&
+          vacancyAgeMax !== undefined &&
+          vacancyAgeMax !== null
+        ) {
+          if (vacancyAgeMax < mustHave.ageMin) return false;
         }
-        if (mustHave.ageMax !== undefined && reqAgeMin !== undefined) {
-          if (reqAgeMin > mustHave.ageMax) return false;
+        if (
+          mustHave.ageMax !== undefined &&
+          vacancyAgeMin !== undefined &&
+          vacancyAgeMin !== null
+        ) {
+          if (vacancyAgeMin > mustHave.ageMax) return false;
         }
       }
 
@@ -156,112 +142,28 @@ export function Requests() {
         mustHave.budgetMin !== undefined ||
         mustHave.budgetMax !== undefined
       ) {
-        const reqBudget = req.budget?.amount;
-        if (reqBudget !== undefined) {
+        const vacancyMaxBudget = vacancy.max_budget;
+        if (vacancyMaxBudget !== undefined) {
           if (
             mustHave.budgetMin !== undefined &&
-            reqBudget < mustHave.budgetMin
+            vacancyMaxBudget < mustHave.budgetMin
           ) {
             return false;
           }
           if (
             mustHave.budgetMax !== undefined &&
-            reqBudget > mustHave.budgetMax
+            vacancyMaxBudget > mustHave.budgetMax
           ) {
             return false;
           }
-        }
-      }
-
-      // From City filter
-      if (mustHave.fromCity) {
-        const reqCity = req.destination?.city?.toLowerCase();
-        if (!reqCity || !reqCity.includes(mustHave.fromCity.toLowerCase())) {
-          return false;
-        }
-      }
-
-      // From Country filter
-      if (mustHave.fromCountry) {
-        const reqCountry = req.destination?.country?.toLowerCase();
-        if (
-          !reqCountry ||
-          !reqCountry.includes(mustHave.fromCountry.toLowerCase())
-        ) {
-          return false;
         }
       }
 
       return true;
     });
 
-    // NICE TO HAVE FILTERS - Soft preferences (mark as approximate if not perfect match)
-    list = list.map((req) => {
-      let matchScore = 100;
-      let isApproximate = false;
-
-      // Flexible age check
-      if (niceToHave.flexibleAge && (mustHave.ageMin || mustHave.ageMax)) {
-        const reqAgeMin = req.preferences?.mustHave?.ageRange?.min;
-        const reqAgeMax = req.preferences?.mustHave?.ageRange?.max;
-
-        if (reqAgeMin !== undefined && mustHave.ageMax !== undefined) {
-          const ageDiff = Math.abs(reqAgeMin - mustHave.ageMax);
-          if (ageDiff > 5) {
-            matchScore -= 10;
-            isApproximate = true;
-          }
-        }
-        if (reqAgeMax !== undefined && mustHave.ageMin !== undefined) {
-          const ageDiff = Math.abs(reqAgeMax - mustHave.ageMin);
-          if (ageDiff > 5) {
-            matchScore -= 10;
-            isApproximate = true;
-          }
-        }
-      }
-
-      // Approximate budget check
-      if (
-        niceToHave.approximateBudget &&
-        (mustHave.budgetMin || mustHave.budgetMax)
-      ) {
-        const reqBudget = req.budget?.amount;
-        if (
-          reqBudget !== undefined &&
-          (mustHave.budgetMin || mustHave.budgetMax)
-        ) {
-          const midpoint =
-            ((mustHave.budgetMin || 0) + (mustHave.budgetMax || reqBudget)) / 2;
-          const diff = Math.abs(reqBudget - midpoint) / midpoint;
-          if (diff > 0.2) {
-            matchScore -= 15;
-            isApproximate = true;
-          }
-        }
-      }
-
-      // Preferred interests
-      if (
-        niceToHave.preferredInterests &&
-        niceToHave.preferredInterests.length > 0
-      ) {
-        isApproximate = true;
-        matchScore -= 5;
-      }
-
-      return {
-        ...req,
-        isApproximateMatch: isApproximate,
-        matchScore,
-      };
-    });
-
-    // Sort by match score
-    list.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
-
     return list;
-  }, [requests, filters, searchCity]);
+  }, [vacancies, filters, searchCity]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -394,7 +296,7 @@ export function Requests() {
                 letterSpacing: "-0.02em",
               }}
             >
-              Trip Requests
+              Trip Vacancies
             </h1>
             <p
               style={{
@@ -403,7 +305,7 @@ export function Requests() {
                 margin: 0,
               }}
             >
-              Browse all trip requests
+              Browse all trip vacancies
             </p>
           </div>
 
@@ -433,7 +335,7 @@ export function Requests() {
 
           {loading ? (
             <p style={{ color: "var(--text-muted)" }}>Loading…</p>
-          ) : requests.length === 0 ? (
+          ) : vacancies.length === 0 ? (
             <div
               className="card-premium"
               style={{
@@ -442,10 +344,10 @@ export function Requests() {
               }}
             >
               <p style={{ color: "var(--text-muted)" }}>
-                No trip requests yet.
+                No trip vacancies yet.
               </p>
             </div>
-          ) : filteredRequests.length === 0 ? (
+          ) : filteredVacancies.length === 0 ? (
             <div
               className="card-premium"
               style={{
@@ -454,13 +356,13 @@ export function Requests() {
               }}
             >
               <p style={{ color: "var(--text-muted)", marginBottom: 16 }}>
-                No requests match your destination search. Try a different term
+                No vacancies match your destination search. Try a different term
                 or clear filters.
               </p>
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={clearFilters}
+                onClick={clearAllFilters}
                 style={{ width: "auto", padding: "12px 24px" }}
               >
                 Clear filters
@@ -474,10 +376,10 @@ export function Requests() {
                 gap: 24,
               }}
             >
-              {filteredRequests.map((r) => (
+              {filteredVacancies.map((v) => (
                 <Link
-                  key={r.id}
-                  to={`/requests/${r.id}`}
+                  key={v.id}
+                  to={`/requests/${v.id}`}
                   className="card-premium"
                   style={{
                     padding: 24,
@@ -498,7 +400,7 @@ export function Requests() {
                         margin: "0 0 12px",
                       }}
                     >
-                      {formatDestination(r.destination)}
+                      {formatVacancyDestination(v)}
                     </h3>
 
                     <div style={{ marginBottom: 12 }}>
@@ -511,7 +413,7 @@ export function Requests() {
                         }}
                       >
                         <strong style={{ color: "var(--text)" }}>Dates:</strong>{" "}
-                        {formatDate(r.startDate)} — {formatDate(r.endDate)}
+                        {formatDate(v.start_date)} — {formatDate(v.end_date)}
                       </p>
                       <p
                         style={{
@@ -524,7 +426,7 @@ export function Requests() {
                         <strong style={{ color: "var(--text)" }}>
                           Budget:
                         </strong>{" "}
-                        {formatBudget(r.budget)}
+                        {formatVacancyBudget(v)}
                       </p>
                       <p
                         style={{
@@ -535,91 +437,23 @@ export function Requests() {
                         }}
                       >
                         <strong style={{ color: "var(--text)" }}>
-                          Created:
+                          People needed:
                         </strong>{" "}
-                        {formatDate(r.createdAt)}
+                        {v.people_needed}
                       </p>
                     </div>
 
-                    {r.interests && r.interests.length > 0 && (
-                      <div
+                    {v.description && (
+                      <p
                         style={{
-                          marginTop: 12,
-                          paddingTop: 12,
-                          borderTop: "1px solid var(--border)",
+                          fontSize: "0.875rem",
+                          color: "var(--text-muted)",
+                          margin: 0,
+                          lineHeight: 1.5,
                         }}
                       >
-                        <p
-                          style={{
-                            fontSize: "0.75rem",
-                            fontWeight: 700,
-                            textTransform: "uppercase",
-                            letterSpacing: "0.05em",
-                            color: "var(--primary)",
-                            margin: "0 0 8px",
-                          }}
-                        >
-                          Interests
-                        </p>
-                        <div
-                          style={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            gap: 6,
-                          }}
-                        >
-                          {r.interests.slice(0, 6).map((interest, idx) => {
-                            const color = getInterestColor(idx);
-                            return (
-                              <span
-                                key={idx}
-                                style={{
-                                  display: "inline-block",
-                                  padding: "4px 12px",
-                                  fontSize: "0.75rem",
-                                  fontWeight: 600,
-                                  borderRadius: 100,
-                                  background: color.bg,
-                                  color: color.text,
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {interest}
-                              </span>
-                            );
-                          })}
-                          {r.interests.length > 6 && (
-                            <span
-                              style={{
-                                display: "inline-block",
-                                padding: "4px 12px",
-                                fontSize: "0.75rem",
-                                fontWeight: 600,
-                                color: "var(--text-muted)",
-                              }}
-                            >
-                              +{r.interests.length - 6} more
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {r.isApproximateMatch && (
-                      <div style={{ marginTop: 8 }}>
-                        <span className="match-indicator">
-                          <svg
-                            className="match-indicator-icon"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                          </svg>
-                          Approx Match
-                        </span>
-                      </div>
+                        {v.description}
+                      </p>
                     )}
                   </div>
                 </Link>

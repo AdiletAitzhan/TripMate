@@ -5,6 +5,7 @@ import { PrivateRoute } from "./components/PrivateRoute";
 import { Landing } from "./pages/Landing";
 import { Home } from "./pages/Home";
 import { Profile } from "./pages/Profile";
+import { ProfileCreation } from "./pages/ProfileCreation";
 import { Requests } from "./pages/Requests";
 import { TripRequestDetail } from "./pages/TripRequestDetail";
 import { Login } from "./pages/Login";
@@ -36,6 +37,14 @@ function App() {
               element={
                 <PrivateRoute>
                   <Profile />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/create-profile"
+              element={
+                <PrivateRoute>
+                  <ProfileCreation />
                 </PrivateRoute>
               }
             />

@@ -3,8 +3,8 @@ import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { NotificationButton } from "../components/NotificationButton";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { useAuth } from "../context/useAuth";
-import { useTripRequestsApi } from "../hooks/useTripRequestsApi";
-import type { TripRequestResponse } from "../types/tripRequest";
+import { useTripVacanciesApi } from "../hooks/useTripVacanciesApi";
+import type { TripVacancyResponse } from "../types/tripRequest";
 
 function formatDate(s: string | undefined): string {
   if (!s) return "—";
@@ -28,15 +28,19 @@ function formatDateTime(s: string | undefined): string {
   });
 }
 
-function formatDestination(dest: TripRequestResponse["destination"]): string {
-  const parts = [dest?.city, dest?.country].filter(Boolean);
+function formatVacancyDestination(v: TripVacancyResponse): string {
+  const parts = [v.destination_city, v.destination_country].filter(Boolean);
   return parts.length ? parts.join(", ") : "—";
 }
 
-function formatBudget(budget: TripRequestResponse["budget"]): string {
-  if (!budget?.amount) return "—";
-  const curr = budget.currency ?? "USD";
-  return `${budget.amount} ${curr}`;
+function formatVacancyBudget(v: TripVacancyResponse): string {
+  const min = v.min_budget;
+  const max = v.max_budget;
+  if (!min && !max) return "—";
+  if (min && max) return `${min} - ${max} KZT`;
+  if (min) return `From ${min} KZT`;
+  if (max) return `Up to ${max} KZT`;
+  return "—";
 }
 
 const INTEREST_COLORS = [
@@ -54,94 +58,14 @@ function getInterestColor(index: number) {
   return INTEREST_COLORS[index % INTEREST_COLORS.length];
 }
 
-function formatPreferences(
-  prefs: TripRequestResponse["preferences"],
-): JSX.Element | null {
-  if (!prefs) return null;
-
-  const items: JSX.Element[] = [];
-
-  if (prefs.mustHave) {
-    const mustItems: string[] = [];
-
-    if (prefs.mustHave.ageRange) {
-      const { min, max } = prefs.mustHave.ageRange;
-      mustItems.push(`Age: ${min ?? "?"}-${max ?? "?"}`);
-    }
-
-    if (prefs.mustHave.gender && prefs.mustHave.gender.length > 0) {
-      const genders = prefs.mustHave.gender.join(", ");
-      mustItems.push(`Gender: ${genders}`);
-    }
-
-    if (prefs.mustHave.verifiedOnly !== undefined) {
-      mustItems.push(
-        `Verified only: ${prefs.mustHave.verifiedOnly ? "Yes" : "No"}`,
-      );
-    }
-
-    if (mustItems.length > 0) {
-      items.push(
-        <div key="must-have" style={{ marginBottom: 12 }}>
-          <strong style={{ color: "var(--accent)", fontSize: "0.875rem" }}>
-            Must Have:
-          </strong>
-          <ul
-            style={{ margin: "4px 0 0", paddingLeft: 20, fontSize: "0.875rem" }}
-          >
-            {mustItems.map((item, idx) => (
-              <li key={idx} style={{ marginBottom: 2 }}>
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>,
-      );
-    }
-  }
-
-  if (prefs.niceToHave) {
-    const niceItems: string[] = [];
-
-    if (prefs.niceToHave.similarInterests) {
-      niceItems.push(`Similar interests: ${prefs.niceToHave.similarInterests}`);
-    }
-
-    if (prefs.niceToHave.similarBudget) {
-      niceItems.push(`Similar budget: ${prefs.niceToHave.similarBudget}`);
-    }
-
-    if (niceItems.length > 0) {
-      items.push(
-        <div key="nice-to-have">
-          <strong style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
-            Nice to Have:
-          </strong>
-          <ul
-            style={{ margin: "4px 0 0", paddingLeft: 20, fontSize: "0.875rem" }}
-          >
-            {niceItems.map((item, idx) => (
-              <li key={idx} style={{ marginBottom: 2 }}>
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>,
-      );
-    }
-  }
-
-  return items.length > 0 ? <div>{items}</div> : null;
-}
-
 export function TripRequestDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const { clearAuth, isReady, accessToken, refreshToken } = useAuth();
-  const { getById } = useTripRequestsApi();
+  const { getVacancyById } = useTripVacanciesApi();
 
-  const [request, setRequest] = useState<TripRequestResponse | null>(null);
+  const [vacancy, setVacancy] = useState<TripVacancyResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -154,11 +78,11 @@ export function TripRequestDetail() {
     }
     setLoading(true);
     setError(null);
-    getById(id)
-      .then((res) => setRequest(res.data))
-      .catch((e) => setError(e?.message ?? "Failed to load trip request"))
+    getVacancyById(Number(id))
+      .then((data) => setVacancy(data))
+      .catch((e) => setError(e?.message ?? "Failed to load trip vacancy"))
       .finally(() => setLoading(false));
-  }, [id, isReady, accessToken, refreshToken, getById]);
+  }, [id, isReady, accessToken, refreshToken, getVacancyById]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -295,7 +219,7 @@ export function TripRequestDetail() {
             }}
             aria-label="Back to requests"
           >
-            ← Back to Trip Requests
+            ← Back to Trip Vacancies
           </button>
 
           {loading ? (
@@ -319,242 +243,455 @@ export function TripRequestDetail() {
                 Back
               </button>
             </div>
-          ) : !request ? (
+          ) : !vacancy ? (
             <p style={{ color: "var(--text-muted)" }}>
-              Trip request not found.
+              Trip vacancy not found.
             </p>
           ) : (
-            <div
-              className="card-premium"
-              style={{
-                padding: 32,
-                display: "flex",
-                flexDirection: "column",
-                gap: 24,
-              }}
-            >
-              <div>
-                <h1
+            <>
+              {/* Header Section */}
+              <div
+                style={{
+                  background: "var(--card-bg)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 16,
+                  padding: "24px 32px",
+                  marginBottom: 24,
+                }}
+              >
+                <div
                   style={{
-                    fontSize: "1.75rem",
-                    fontWeight: 700,
-                    color: "var(--text)",
-                    margin: "0 0 8px",
-                    letterSpacing: "-0.02em",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    gap: 16,
+                    flexWrap: "wrap",
                   }}
                 >
-                  {formatDestination(request.destination)}
-                </h1>
-                {request.status && (
-                  <span
-                    style={{
-                      display: "inline-block",
-                      padding: "4px 12px",
-                      fontSize: "0.8125rem",
-                      fontWeight: 600,
-                      borderRadius: 999,
-                      background: "var(--accent-light)",
-                      color: "var(--accent)",
-                    }}
-                  >
-                    {request.status}
-                  </span>
-                )}
-              </div>
-
-              <section
-                style={{ display: "flex", flexDirection: "column", gap: 16 }}
-              >
-                <div>
-                  <h3
-                    style={{
-                      fontSize: "0.75rem",
-                      fontWeight: 600,
-                      color: "var(--text-muted)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                      margin: "0 0 4px",
-                    }}
-                  >
-                    Dates
-                  </h3>
-                  <p
-                    style={{
-                      fontSize: "1rem",
-                      color: "var(--text)",
-                      margin: 0,
-                    }}
-                  >
-                    {formatDate(request.startDate)} —{" "}
-                    {formatDate(request.endDate)}
-                    {request.duration != null && (
+                  <div>
+                    <h1
+                      style={{
+                        fontSize: "2rem",
+                        fontWeight: 700,
+                        color: "var(--text)",
+                        margin: "0 0 8px",
+                        letterSpacing: "-0.02em",
+                      }}
+                    >
+                      {formatVacancyDestination(vacancy)}
+                    </h1>
+                    {vacancy.status && (
                       <span
-                        style={{ color: "var(--text-muted)", marginLeft: 8 }}
+                        style={{
+                          display: "inline-block",
+                          padding: "6px 16px",
+                          fontSize: "0.8125rem",
+                          fontWeight: 600,
+                          borderRadius: 999,
+                          background: "var(--accent-light)",
+                          color: "var(--accent)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                        }}
                       >
-                        ({request.duration} day
-                        {request.duration !== 1 ? "s" : ""})
+                        {vacancy.status}
                       </span>
                     )}
-                  </p>
-                  {request.flexibleDates && (
-                    <p
-                      style={{
-                        fontSize: "0.875rem",
-                        color: "var(--text-muted)",
-                        margin: "4px 0 0",
-                      }}
-                    >
-                      Flexible dates
-                    </p>
-                  )}
+                  </div>
                 </div>
+              </div>
 
-                <div>
-                  <h3
+              {/* Trip Overview Card - 2 Columns */}
+              <div
+                style={{
+                  background: "var(--card-bg)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 16,
+                  padding: "24px 32px",
+                  marginBottom: 24,
+                }}
+              >
+                <h2
+                  style={{
+                    fontSize: "1.125rem",
+                    fontWeight: 700,
+                    color: "var(--text)",
+                    margin: "0 0 20px",
+                    letterSpacing: "-0.01em",
+                  }}
+                >
+                  Trip Overview
+                </h2>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                    gap: 24,
+                  }}
+                >
+                  {/* Left Column */}
+                  <div
                     style={{
-                      fontSize: "0.75rem",
-                      fontWeight: 600,
-                      color: "var(--text-muted)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                      margin: "0 0 4px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 16,
                     }}
                   >
-                    Budget
-                  </h3>
-                  <p
+                    {/* Dates */}
+                    <div>
+                      <div
+                        style={{
+                          fontSize: "0.6875rem",
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          color: "var(--text-muted)",
+                          marginBottom: 6,
+                        }}
+                      >
+                        Travel Dates
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "0.9375rem",
+                          fontWeight: 500,
+                          color: "var(--text)",
+                        }}
+                      >
+                        {formatDate(vacancy.start_date)} —{" "}
+                        {formatDate(vacancy.end_date)}
+                      </div>
+                    </div>
+
+                    {/* Budget */}
+                    <div>
+                      <div
+                        style={{
+                          fontSize: "0.6875rem",
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          color: "var(--text-muted)",
+                          marginBottom: 6,
+                        }}
+                      >
+                        Budget Range
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "0.9375rem",
+                          fontWeight: 500,
+                          color: "var(--text)",
+                        }}
+                      >
+                        {formatVacancyBudget(vacancy) || "Not specified"}
+                      </div>
+                    </div>
+
+                    {/* Description */}
+                    {vacancy.description && (
+                      <div>
+                        <div
+                          style={{
+                            fontSize: "0.6875rem",
+                            fontWeight: 700,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.08em",
+                            color: "var(--text-muted)",
+                            marginBottom: 6,
+                          }}
+                        >
+                          Description
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "0.9375rem",
+                            color: "var(--text)",
+                            lineHeight: 1.6,
+                          }}
+                        >
+                          {vacancy.description}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Column */}
+                  <div
                     style={{
-                      fontSize: "1rem",
-                      color: "var(--text)",
-                      margin: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 16,
                     }}
                   >
-                    {formatBudget(request.budget)}
-                  </p>
-                </div>
-
-                {request.matchCount != null && request.matchCount > 0 && (
-                  <div>
-                    <h3
-                      style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 600,
-                        color: "var(--text-muted)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        margin: "0 0 4px",
-                      }}
-                    >
-                      Matches
-                    </h3>
-                    <p
-                      style={{
-                        fontSize: "1rem",
-                        color: "var(--status-success)",
-                        margin: 0,
-                      }}
-                    >
-                      {request.matchCount} match
-                      {request.matchCount !== 1 ? "es" : ""} found
-                    </p>
-                  </div>
-                )}
-
-                {request.notifyOnMatch != null && (
-                  <div>
-                    <h3
-                      style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 600,
-                        color: "var(--text-muted)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        margin: "0 0 4px",
-                      }}
-                    >
-                      Notifications
-                    </h3>
-                    <p
-                      style={{
-                        fontSize: "1rem",
-                        color: "var(--text)",
-                        margin: 0,
-                      }}
-                    >
-                      {request.notifyOnMatch
-                        ? "Notify on match"
-                        : "No notifications"}
-                    </p>
-                  </div>
-                )}
-
-                {request.createdAt && (
-                  <div>
-                    <h3
-                      style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 600,
-                        color: "var(--text-muted)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        margin: "0 0 4px",
-                      }}
-                    >
-                      Created
-                    </h3>
-                    <p
-                      style={{
-                        fontSize: "1rem",
-                        color: "var(--text)",
-                        margin: 0,
-                      }}
-                    >
-                      {formatDateTime(request.createdAt)}
-                    </p>
-                  </div>
-                )}
-
-                {request.interests && request.interests.length > 0 && (
-                  <div>
-                    <h3
-                      style={{
-                        fontSize: "1rem",
-                        marginBottom: "0.75rem",
-                        color: "var(--text-primary)",
-                      }}
-                    >
-                      Interests
-                    </h3>
+                    {/* People Needed */}
                     <div
                       style={{
                         display: "flex",
-                        flexWrap: "wrap",
-                        gap: "0.5rem",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "12px 16px",
+                        background: "var(--bg-elevated)",
+                        borderRadius: 8,
                       }}
                     >
-                      {request.interests.map((interest, idx) => {
-                        const colors = getInterestColor(idx);
-                        return (
-                          <span
-                            key={idx}
-                            style={{
-                              padding: "0.25rem 0.75rem",
-                              borderRadius: "12px",
-                              backgroundColor: colors.bg,
-                              color: colors.text,
-                              fontSize: "0.875rem",
-                              fontWeight: "500",
-                            }}
-                          >
-                            {interest}
-                          </span>
-                        );
-                      })}
+                      <span
+                        style={{
+                          fontSize: "0.8125rem",
+                          fontWeight: 600,
+                          color: "var(--text-muted)",
+                        }}
+                      >
+                        People Needed
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "1rem",
+                          fontWeight: 600,
+                          color: "var(--text)",
+                        }}
+                      >
+                        {vacancy.people_needed}
+                      </span>
+                    </div>
+
+                    {/* Age Range */}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "12px 16px",
+                        background: "var(--bg-elevated)",
+                        borderRadius: 8,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "0.8125rem",
+                          fontWeight: 600,
+                          color: "var(--text-muted)",
+                        }}
+                      >
+                        Age Range
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "1rem",
+                          fontWeight: 600,
+                          color: "var(--text)",
+                        }}
+                      >
+                        {vacancy.min_age ?? "Any"} - {vacancy.max_age ?? "Any"}
+                      </span>
+                    </div>
+
+                    {/* Gender */}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "12px 16px",
+                        background: "var(--bg-elevated)",
+                        borderRadius: 8,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "0.8125rem",
+                          fontWeight: 600,
+                          color: "var(--text-muted)",
+                        }}
+                      >
+                        Gender
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "1rem",
+                          fontWeight: 600,
+                          color: "var(--text)",
+                        }}
+                      >
+                        {vacancy.gender_preference || "Any"}
+                      </span>
+                    </div>
+
+                    {/* Transportation */}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "12px 16px",
+                        background: "var(--bg-elevated)",
+                        borderRadius: 8,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "0.8125rem",
+                          fontWeight: 600,
+                          color: "var(--text-muted)",
+                        }}
+                      >
+                        Transportation
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "1rem",
+                          fontWeight: 600,
+                          color: "var(--text)",
+                        }}
+                      >
+                        {vacancy.transportation_preference || "Any"}
+                      </span>
+                    </div>
+
+                    {/* Accommodation */}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "12px 16px",
+                        background: "var(--bg-elevated)",
+                        borderRadius: 8,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "0.8125rem",
+                          fontWeight: 600,
+                          color: "var(--text-muted)",
+                        }}
+                      >
+                        Accommodation
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "1rem",
+                          fontWeight: 600,
+                          color: "var(--text)",
+                        }}
+                      >
+                        {vacancy.accommodation_preference || "Any"}
+                      </span>
                     </div>
                   </div>
-                )}
-              </section>
-            </div>
+                </div>
+              </div>
+
+              {/* Activities & Destinations Card */}
+              {(vacancy.planned_activities || vacancy.planned_destinations) && (
+                <div
+                  style={{
+                    background: "var(--card-bg)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 16,
+                    padding: "24px 32px",
+                    marginBottom: 24,
+                  }}
+                >
+                  <h2
+                    style={{
+                      fontSize: "1.125rem",
+                      fontWeight: 700,
+                      color: "var(--text)",
+                      margin: "0 0 20px",
+                      letterSpacing: "-0.01em",
+                    }}
+                  >
+                    Activities & Destinations
+                  </h2>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(auto-fit, minmax(280px, 1fr))",
+                      gap: 24,
+                    }}
+                  >
+                    {vacancy.planned_activities && (
+                      <div>
+                        <div
+                          style={{
+                            fontSize: "0.6875rem",
+                            fontWeight: 700,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.08em",
+                            color: "var(--text-muted)",
+                            marginBottom: 6,
+                          }}
+                        >
+                          Planned Activities
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "0.9375rem",
+                            color: "var(--text)",
+                            lineHeight: 1.6,
+                          }}
+                        >
+                          {vacancy.planned_activities}
+                        </div>
+                      </div>
+                    )}
+
+                    {vacancy.planned_destinations && (
+                      <div>
+                        <div
+                          style={{
+                            fontSize: "0.6875rem",
+                            fontWeight: 700,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.08em",
+                            color: "var(--text-muted)",
+                            marginBottom: 6,
+                          }}
+                        >
+                          Planned Destinations
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "0.9375rem",
+                            color: "var(--text)",
+                            lineHeight: 1.6,
+                          }}
+                        >
+                          {vacancy.planned_destinations}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Created Date - Small Footer */}
+              {vacancy.created_at && (
+                <div
+                  style={{
+                    padding: "12px 0",
+                    borderTop: "1px solid var(--border)",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "0.8125rem",
+                      color: "var(--text-muted)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <span>📅</span>
+                    <span>Created on {formatDateTime(vacancy.created_at)}</span>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </main>
 

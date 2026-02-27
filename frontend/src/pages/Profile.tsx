@@ -3,14 +3,19 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { NotificationButton } from "../components/NotificationButton";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { useAuth } from "../context/useAuth";
-import { useUsersApi } from "../hooks/useUsersApi";
-import { useTripRequestsApi } from "../hooks/useTripRequestsApi";
-import { CreateTripRequestModal } from "../components/CreateTripRequestModal";
-import type { ProfileData } from "../types/profile";
+import { useProfilesApi } from "../hooks/useProfilesApi";
+import { useTripVacanciesApi } from "../hooks/useTripVacanciesApi";
+import { CreateTripVacancyModal } from "../components/CreateTripVacancyModal";
 import type {
-  CreateTripRequestRequest,
-  TripRequestShortResponse,
-  UpdateTripRequestRequest,
+  ProfileDetailResponse,
+  LanguageResponse,
+  InterestResponse,
+  TravelStyleResponse,
+} from "../types/profile";
+import type {
+  TripVacancyCreateRequest,
+  TripVacancyResponse,
+  TripVacancyUpdateRequest,
 } from "../types/tripRequest";
 
 const COUNTRIES = [
@@ -22,19 +27,9 @@ const COUNTRIES = [
   "UK",
   "Other",
 ];
-const LANGUAGES = ["English", "Russian", "Kazakh"];
 const TIMEZONES = ["UTC+05:00", "UTC+06:00", "UTC+03:00", "UTC+00:00"];
-const CURRENCIES = ["USD", "EUR", "KZT", "RUB"];
-const PREFERRED_GENDERS = ["", "MALE", "FEMALE", "OTHER"];
 const PROFILE_GENDER_KEY = "tripmate_profile_gender";
-const PROFILE_LANGUAGE_KEY = "tripmate_profile_language";
 const PROFILE_TIMEZONE_KEY = "tripmate_profile_timezone";
-
-function nicknameFromEmail(email: string | undefined) {
-  if (!email) return "";
-  const i = email.indexOf("@");
-  return i > 0 ? email.slice(0, i) : email;
-}
 
 /** Подмена minio:9000 на localhost:9000, чтобы браузер мог загрузить фото (бэк отдаёт внутренний хост). */
 function photoUrlForBrowser(url: string | undefined): string | undefined {
@@ -52,34 +47,53 @@ function formatRequestDate(s: string | undefined): string {
   });
 }
 
-function formatRequestDestination(
-  dest: TripRequestShortResponse["destination"],
-): string {
-  const parts = [dest?.city, dest?.country].filter(Boolean);
+function formatVacancyDestination(vacancy: TripVacancyResponse): string {
+  const parts = [
+    vacancy?.destination_city,
+    vacancy?.destination_country,
+  ].filter(Boolean);
   return parts.length ? parts.join(", ") : "—";
 }
 
-function formatRequestBudget(
-  budget: TripRequestShortResponse["budget"],
-): string {
-  if (!budget?.amount) return "—";
-  const curr = budget.currency ?? "USD";
-  return `${budget.amount} ${curr}`;
+function formatVacancyBudget(vacancy: TripVacancyResponse): string {
+  const min = vacancy?.min_budget ? Number(vacancy.min_budget) : null;
+  const max = vacancy?.max_budget ? Number(vacancy.max_budget) : null;
+  if (min && max) return `${min} - ${max} KZT`;
+  if (min) return `From ${min} KZT`;
+  if (max) return `Up to ${max} KZT`;
+  return "—";
 }
 
 export function Profile() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isReady, accessToken, refreshToken, clearAuth } = useAuth();
-  const { getProfile, updateProfile, uploadPhoto, updatePreferences } =
-    useUsersApi();
-  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const {
+    getMyProfile,
+    updateMyProfile,
+    setLanguages,
+    setInterests,
+    setTravelStyles,
+    getAllLanguages,
+    getAllInterests,
+    getAllTravelStyles,
+  } = useProfilesApi();
+  const [profile, setProfile] = useState<ProfileDetailResponse | null>(null);
+
+  // Available options from backend
+  const [availableLanguages, setAvailableLanguages] = useState<
+    LanguageResponse[]
+  >([]);
+  const [availableInterests, setAvailableInterests] = useState<
+    InterestResponse[]
+  >([]);
+  const [availableTravelStyles, setAvailableTravelStyles] = useState<
+    TravelStyleResponse[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedMessage, setSavedMessage] = useState(false);
-  const [savingPreferences, setSavingPreferences] = useState(false);
-  const [editingPreferences, setEditingPreferences] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -89,32 +103,34 @@ export function Profile() {
   );
   const [showPhotoHover, setShowPhotoHover] = useState(false);
 
-  const [fullName, setFullName] = useState("");
-  const [nickName, setNickName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [gender, setGender] = useState("");
   const [country, setCountry] = useState("");
-  const [language, setLanguage] = useState("English");
+  const [city, setCity] = useState("");
+  const [bio, setBio] = useState("");
   const [timeZone, setTimeZone] = useState("UTC+05:00");
 
-  const [interestsInput, setInterestsInput] = useState("");
-  const [minAge, setMinAge] = useState<number | "">("");
-  const [maxAge, setMaxAge] = useState<number | "">("");
-  const [preferredGender, setPreferredGender] = useState("");
-  const [budgetMin, setBudgetMin] = useState<number | "">("");
-  const [budgetMax, setBudgetMax] = useState<number | "">("");
-  const [budgetCurrency, setBudgetCurrency] = useState("USD");
+  // Selected IDs for multi-select fields
+  const [selectedLanguageIds, setSelectedLanguageIds] = useState<number[]>([]);
+  const [selectedInterestIds, setSelectedInterestIds] = useState<number[]>([]);
+  const [selectedTravelStyleIds, setSelectedTravelStyleIds] = useState<
+    number[]
+  >([]);
 
-  const { getMyRequests, createRequest, updateRequest, deleteRequest } =
-    useTripRequestsApi();
-  const [myRequests, setMyRequests] = useState<TripRequestShortResponse[]>([]);
-  const [loadingRequests, setLoadingRequests] = useState(false);
-  const [requestError, setRequestError] = useState<string | null>(null);
-  const [requestModalOpen, setRequestModalOpen] = useState(false);
-  const [editingRequest, setEditingRequest] =
-    useState<TripRequestShortResponse | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { getMyVacancies, createVacancy, updateVacancy, deleteVacancy } =
+    useTripVacanciesApi();
+  const [myVacancies, setMyVacancies] = useState<TripVacancyResponse[]>([]);
+  const [loadingVacancies, setLoadingVacancies] = useState(false);
+  const [vacancyError, setVacancyError] = useState<string | null>(null);
+  const [vacancyModalOpen, setVacancyModalOpen] = useState(false);
+  const [editingVacancy, setEditingVacancy] =
+    useState<TripVacancyResponse | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  const photoDisplayUrl = photoUrlForBrowser(profile?.profilePhoto);
+  const photoDisplayUrl = photoUrlForBrowser(
+    profile?.profile_photo_url ?? undefined,
+  );
 
   // Close sidebar when clicking outside
   useEffect(() => {
@@ -188,95 +204,108 @@ export function Profile() {
     };
   }, []);
 
-  const loadMyRequests = () => {
+  const loadMyVacancies = () => {
     if (!isReady || (!accessToken && !refreshToken)) return;
-    setLoadingRequests(true);
-    setRequestError(null);
-    getMyRequests({ page: 1, limit: 50 })
-      .then((res) => {
-        const data = res.data;
-        setMyRequests(data?.requests ?? []);
+    setLoadingVacancies(true);
+    setVacancyError(null);
+    getMyVacancies(0, 50)
+      .then((data) => {
+        setMyVacancies(data ?? []);
       })
-      .catch((e) => setRequestError(e?.message ?? "Failed to load requests"))
-      .finally(() => setLoadingRequests(false));
+      .catch((e) => setVacancyError(e?.message ?? "Failed to load vacancies"))
+      .finally(() => setLoadingVacancies(false));
   };
 
   useEffect(() => {
     if (!isReady || (!accessToken && !refreshToken)) return;
-    loadMyRequests();
+    loadMyVacancies();
   }, [isReady, accessToken, refreshToken]);
 
-  const handleCreateRequest = async (body: CreateTripRequestRequest) => {
-    await createRequest(body);
-    setRequestModalOpen(false);
-    setEditingRequest(null);
-    loadMyRequests();
+  const handleCreateVacancy = async (body: TripVacancyCreateRequest) => {
+    await createVacancy(body);
+    setVacancyModalOpen(false);
+    setEditingVacancy(null);
+    loadMyVacancies();
   };
 
-  const handleUpdateRequest = async (
-    requestId: string,
-    body: UpdateTripRequestRequest,
+  const handleUpdateVacancy = async (
+    vacancyId: number,
+    body: TripVacancyUpdateRequest,
   ) => {
-    await updateRequest(requestId, body);
-    setRequestModalOpen(false);
-    setEditingRequest(null);
-    loadMyRequests();
+    await updateVacancy(vacancyId, body);
+    setVacancyModalOpen(false);
+    setEditingVacancy(null);
+    loadMyVacancies();
   };
 
-  const handleDeleteRequest = async (id: string) => {
-    if (!confirm("Удалить этот реквест?")) return;
+  const handleDeleteVacancy = async (id: number) => {
+    if (!confirm("Delete this vacancy?")) return;
     setDeletingId(id);
     try {
-      await deleteRequest(id);
-      loadMyRequests();
+      await deleteVacancy(id);
+      loadMyVacancies();
     } finally {
       setDeletingId(null);
     }
   };
 
-  const openCreateRequestModal = () => {
-    setEditingRequest(null);
-    setRequestModalOpen(true);
+  const openCreateVacancyModal = () => {
+    setEditingVacancy(null);
+    setVacancyModalOpen(true);
   };
 
-  const openEditRequestModal = (r: TripRequestShortResponse) => {
-    setEditingRequest(r);
-    setRequestModalOpen(true);
+  const openEditVacancyModal = (v: TripVacancyResponse) => {
+    setEditingVacancy(v);
+    setVacancyModalOpen(true);
   };
 
+  // Load available options on mount
+  useEffect(() => {
+    const loadOptions = async () => {
+      try {
+        const [languages, interests, travelStyles] = await Promise.all([
+          getAllLanguages(),
+          getAllInterests(),
+          getAllTravelStyles(),
+        ]);
+        setAvailableLanguages(languages);
+        setAvailableInterests(interests);
+        setAvailableTravelStyles(travelStyles);
+      } catch (e) {
+        console.error("Failed to load options:", e);
+      }
+    };
+    loadOptions();
+  }, [getAllLanguages, getAllInterests, getAllTravelStyles]);
+
+  // Load profile data
   useEffect(() => {
     if (!isReady || (!accessToken && !refreshToken)) {
       setLoading(false);
       return;
     }
     let cancelled = false;
-    getProfile()
-      .then((res) => {
+    getMyProfile()
+      .then((data) => {
         if (cancelled) return;
-        const data = (res as { success?: boolean; data?: ProfileData }).data;
-        if (data) {
-          setProfile(data);
-          setFullName(data.fullName ?? "");
-          setNickName(nicknameFromEmail(data.email));
-          setGender(
-            data.gender ?? sessionStorage.getItem(PROFILE_GENDER_KEY) ?? "",
-          );
-          setCountry(data.location?.country ?? "");
-          const lang = sessionStorage.getItem(PROFILE_LANGUAGE_KEY);
-          setLanguage(lang && LANGUAGES.includes(lang) ? lang : "English");
-          const tz = sessionStorage.getItem(PROFILE_TIMEZONE_KEY);
-          setTimeZone(tz && TIMEZONES.includes(tz) ? tz : "UTC+05:00");
-          const prefs = data.preferences;
-          setInterestsInput((data.interests ?? []).join(", "));
-          if (prefs) {
-            setMinAge(prefs.minAge ?? "");
-            setMaxAge(prefs.maxAge ?? "");
-            setPreferredGender(prefs.preferredGender ?? "");
-            setBudgetMin(prefs.budgetRange?.min ?? "");
-            setBudgetMax(prefs.budgetRange?.max ?? "");
-            setBudgetCurrency(prefs.budgetRange?.currency ?? "USD");
-          }
-        }
+        setProfile(data);
+        setFirstName(data.first_name ?? "");
+        setLastName(data.last_name ?? "");
+        setGender(
+          data.gender ?? sessionStorage.getItem(PROFILE_GENDER_KEY) ?? "",
+        );
+        setCountry(data.country ?? "");
+        setCity(data.city ?? "");
+        setBio(data.bio ?? "");
+        const tz = sessionStorage.getItem(PROFILE_TIMEZONE_KEY);
+        setTimeZone(tz && TIMEZONES.includes(tz) ? tz : "UTC+05:00");
+
+        // Set selected IDs for multi-select fields
+        setSelectedLanguageIds(data.languages?.map((l) => l.language_id) ?? []);
+        setSelectedInterestIds(data.interests?.map((i) => i.interest_id) ?? []);
+        setSelectedTravelStyleIds(
+          data.travel_styles?.map((ts) => ts.travel_style_id) ?? [],
+        );
       })
       .catch((e) => {
         if (!cancelled) setError(e?.message ?? "Failed to load profile");
@@ -287,48 +316,34 @@ export function Profile() {
     return () => {
       cancelled = true;
     };
-  }, [isReady, accessToken, refreshToken, getProfile]);
+  }, [isReady, accessToken, refreshToken, getMyProfile]);
 
   const handleSave = async () => {
     setSaving(true);
     setError(null);
     setSavedMessage(false);
     try {
-      const body: {
-        fullName?: string;
-        location?: { city?: string; country?: string };
-      } = {};
-      if (fullName != null && fullName.trim() !== "")
-        body.fullName = fullName.trim();
-      if (country != null && country !== "")
-        body.location = { country: country, city: profile?.location?.city };
-      await updateProfile(body);
-      await new Promise((r) => setTimeout(r, 300));
-      const res = await getProfile();
-      const data = (res as { success?: boolean; data?: ProfileData }).data;
-      if (data) {
-        setProfile(data);
-        setFullName(data.fullName ?? "");
-        setNickName(nicknameFromEmail(data.email));
-        setGender(
-          data.gender ?? sessionStorage.getItem(PROFILE_GENDER_KEY) ?? "",
-        );
-        setCountry(data.location?.country ?? "");
-        const lang = sessionStorage.getItem(PROFILE_LANGUAGE_KEY);
-        setLanguage(lang && LANGUAGES.includes(lang) ? lang : "English");
-        const tz = sessionStorage.getItem(PROFILE_TIMEZONE_KEY);
-        setTimeZone(tz && TIMEZONES.includes(tz) ? tz : "UTC+05:00");
-        const prefs = data.preferences;
-        setInterestsInput((data.interests ?? []).join(", "));
-        if (prefs) {
-          setMinAge(prefs.minAge ?? "");
-          setMaxAge(prefs.maxAge ?? "");
-          setPreferredGender(prefs.preferredGender ?? "");
-          setBudgetMin(prefs.budgetRange?.min ?? "");
-          setBudgetMax(prefs.budgetRange?.max ?? "");
-          setBudgetCurrency(prefs.budgetRange?.currency ?? "USD");
-        }
-      }
+      // Update basic profile fields
+      await updateMyProfile({
+        first_name: firstName.trim() || undefined,
+        last_name: lastName.trim() || undefined,
+        gender: gender || undefined,
+        country: country || undefined,
+        city: city || undefined,
+        bio: bio || undefined,
+      });
+
+      // Update languages, interests, and travel styles
+      await Promise.all([
+        setLanguages(selectedLanguageIds),
+        setInterests(selectedInterestIds),
+        setTravelStyles(selectedTravelStyleIds),
+      ]);
+
+      // Reload profile
+      const updatedProfile = await getMyProfile();
+      setProfile(updatedProfile);
+
       setSavedMessage(true);
       setTimeout(() => setSavedMessage(false), 3000);
     } catch (e) {
@@ -345,62 +360,15 @@ export function Profile() {
     setUploadingPhoto(true);
     setError(null);
     try {
-      const result = await uploadPhoto(file);
-      if (result?.data?.photoUrl) {
-        setProfile((p) =>
-          p ? { ...p, profilePhoto: result.data!.photoUrl } : null,
-        );
-      }
+      // TODO: Implement photo upload
+      // For now, this is a placeholder
+      console.warn("Photo upload not implemented");
+      setError("Photo upload feature coming soon");
     } catch (err: unknown) {
       setError((err as Error)?.message ?? "Failed to upload photo");
     } finally {
       setUploadingPhoto(false);
       e.target.value = "";
-    }
-  };
-
-  const handleSavePreferences = async () => {
-    setSavingPreferences(true);
-    setError(null);
-    try {
-      const interestsList = interestsInput
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      await updatePreferences({
-        interests: interestsList.length ? interestsList : undefined,
-        minAge: minAge === "" ? undefined : Number(minAge),
-        maxAge: maxAge === "" ? undefined : Number(maxAge),
-        preferredGender: preferredGender || undefined,
-        budgetRange:
-          budgetMin !== "" || budgetMax !== ""
-            ? {
-                min: budgetMin === "" ? undefined : Number(budgetMin),
-                max: budgetMax === "" ? undefined : Number(budgetMax),
-                currency: budgetCurrency,
-              }
-            : undefined,
-      });
-      const res = await getProfile();
-      const data = (res as { success?: boolean; data?: ProfileData }).data;
-      if (data) {
-        setProfile(data);
-        const prefs = data.preferences;
-        setInterestsInput((data.interests ?? []).join(", "));
-        if (prefs) {
-          setMinAge(prefs.minAge ?? "");
-          setMaxAge(prefs.maxAge ?? "");
-          setPreferredGender(prefs.preferredGender ?? "");
-          setBudgetMin(prefs.budgetRange?.min ?? "");
-          setBudgetMax(prefs.budgetRange?.max ?? "");
-          setBudgetCurrency(prefs.budgetRange?.currency ?? "USD");
-        }
-      }
-      setEditingPreferences(false);
-    } catch (e: unknown) {
-      setError((e as Error)?.message ?? "Failed to save preferences");
-    } finally {
-      setSavingPreferences(false);
     }
   };
 
@@ -456,7 +424,7 @@ export function Profile() {
               className={`sidebar-link ${location.pathname === "/" ? "active" : ""}`}
               onClick={closeSidebar}
             >
-              Catalog
+              Home
             </Link>
             <Link
               to="/profile"
@@ -707,7 +675,9 @@ export function Profile() {
                       color: "var(--text)",
                     }}
                   >
-                    {profile?.fullName || "—"}
+                    {profile
+                      ? `${profile.first_name} ${profile.last_name}`
+                      : "—"}
                   </p>
                   <p
                     style={{
@@ -716,7 +686,7 @@ export function Profile() {
                       color: "var(--text-muted)",
                     }}
                   >
-                    {profile?.email || user?.email || "—"}
+                    {user?.email || "—"}
                   </p>
                 </div>
               </div>
@@ -730,24 +700,23 @@ export function Profile() {
                 }}
               >
                 <div className="input-wrap">
-                  <label>Full Name</label>
+                  <label>First Name</label>
                   <input
                     type="text"
                     className="input-field"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Enter your full name"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="Enter your first name"
                   />
                 </div>
                 <div className="input-wrap">
-                  <label>Nick Name</label>
+                  <label>Last Name</label>
                   <input
                     type="text"
                     className="input-field"
-                    value={nickName}
-                    readOnly
-                    style={{ background: "var(--bg)", cursor: "default" }}
-                    aria-label="Nickname (from email)"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Enter your last name"
                   />
                 </div>
                 <div className="input-wrap">
@@ -784,22 +753,14 @@ export function Profile() {
                   </select>
                 </div>
                 <div className="input-wrap">
-                  <label>Language</label>
-                  <select
+                  <label>City</label>
+                  <input
+                    type="text"
                     className="input-field"
-                    value={language}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setLanguage(v);
-                      sessionStorage.setItem(PROFILE_LANGUAGE_KEY, v);
-                    }}
-                  >
-                    {LANGUAGES.map((l) => (
-                      <option key={l} value={l}>
-                        {l}
-                      </option>
-                    ))}
-                  </select>
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="Enter your city"
+                  />
                 </div>
                 <div className="input-wrap">
                   <label>Time Zone</label>
@@ -819,6 +780,344 @@ export function Profile() {
                     ))}
                   </select>
                 </div>
+              </div>
+
+              {/* Languages Section - Chip Based */}
+              <div
+                style={{
+                  marginBottom: 32,
+                  padding: "24px",
+                  background: "var(--card-bg)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 12,
+                }}
+              >
+                <h3
+                  style={{
+                    fontSize: "0.875rem",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    color: "var(--text-muted)",
+                    margin: "0 0 16px",
+                  }}
+                >
+                  Languages
+                </h3>
+                {availableLanguages.length === 0 ? (
+                  <p style={{ color: "var(--text-muted)", margin: 0 }}>
+                    Loading languages...
+                  </p>
+                ) : (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(auto-fill, minmax(140px, 1fr))",
+                      gap: 8,
+                    }}
+                  >
+                    {availableLanguages.map((lang) => {
+                      const isSelected = selectedLanguageIds.includes(lang.id);
+                      return (
+                        <button
+                          key={lang.id}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedLanguageIds(
+                                selectedLanguageIds.filter(
+                                  (id) => id !== lang.id,
+                                ),
+                              );
+                            } else {
+                              setSelectedLanguageIds([
+                                ...selectedLanguageIds,
+                                lang.id,
+                              ]);
+                            }
+                          }}
+                          style={{
+                            padding: "10px 16px",
+                            fontSize: "0.875rem",
+                            fontWeight: isSelected ? 600 : 500,
+                            color: isSelected
+                              ? "var(--primary)"
+                              : "var(--text)",
+                            background: isSelected
+                              ? "var(--primary-light)"
+                              : "var(--bg-elevated)",
+                            border: isSelected
+                              ? "2px solid var(--primary)"
+                              : "1px solid var(--border)",
+                            borderRadius: 999,
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 6,
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isSelected) {
+                              e.currentTarget.style.background =
+                                "var(--bg-hover)";
+                              e.currentTarget.style.borderColor =
+                                "var(--primary)";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isSelected) {
+                              e.currentTarget.style.background =
+                                "var(--bg-elevated)";
+                              e.currentTarget.style.borderColor =
+                                "var(--border)";
+                            }
+                          }}
+                        >
+                          {isSelected && (
+                            <span style={{ fontSize: "0.75rem" }}>✓</span>
+                          )}
+                          {lang.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Interests Section - Chip Based */}
+              <div
+                style={{
+                  marginBottom: 32,
+                  padding: "24px",
+                  background: "var(--card-bg)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 12,
+                }}
+              >
+                <h3
+                  style={{
+                    fontSize: "0.875rem",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    color: "var(--text-muted)",
+                    margin: "0 0 16px",
+                  }}
+                >
+                  Interests
+                </h3>
+                {availableInterests.length === 0 ? (
+                  <p style={{ color: "var(--text-muted)", margin: 0 }}>
+                    Loading interests...
+                  </p>
+                ) : (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(auto-fill, minmax(140px, 1fr))",
+                      gap: 8,
+                    }}
+                  >
+                    {availableInterests.map((interest) => {
+                      const isSelected = selectedInterestIds.includes(
+                        interest.id,
+                      );
+                      return (
+                        <button
+                          key={interest.id}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedInterestIds(
+                                selectedInterestIds.filter(
+                                  (id) => id !== interest.id,
+                                ),
+                              );
+                            } else {
+                              setSelectedInterestIds([
+                                ...selectedInterestIds,
+                                interest.id,
+                              ]);
+                            }
+                          }}
+                          style={{
+                            padding: "10px 16px",
+                            fontSize: "0.875rem",
+                            fontWeight: isSelected ? 600 : 500,
+                            color: isSelected
+                              ? "var(--primary)"
+                              : "var(--text)",
+                            background: isSelected
+                              ? "var(--primary-light)"
+                              : "var(--bg-elevated)",
+                            border: isSelected
+                              ? "2px solid var(--primary)"
+                              : "1px solid var(--border)",
+                            borderRadius: 999,
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 6,
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isSelected) {
+                              e.currentTarget.style.background =
+                                "var(--bg-hover)";
+                              e.currentTarget.style.borderColor =
+                                "var(--primary)";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isSelected) {
+                              e.currentTarget.style.background =
+                                "var(--bg-elevated)";
+                              e.currentTarget.style.borderColor =
+                                "var(--border)";
+                            }
+                          }}
+                        >
+                          {isSelected && (
+                            <span style={{ fontSize: "0.75rem" }}>✓</span>
+                          )}
+                          {interest.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Travel Styles Section - Chip Based */}
+              <div
+                style={{
+                  marginBottom: 32,
+                  padding: "24px",
+                  background: "var(--card-bg)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 12,
+                }}
+              >
+                <h3
+                  style={{
+                    fontSize: "0.875rem",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    color: "var(--text-muted)",
+                    margin: "0 0 16px",
+                  }}
+                >
+                  Travel Styles
+                </h3>
+                {availableTravelStyles.length === 0 ? (
+                  <p style={{ color: "var(--text-muted)", margin: 0 }}>
+                    Loading travel styles...
+                  </p>
+                ) : (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(auto-fill, minmax(140px, 1fr))",
+                      gap: 8,
+                    }}
+                  >
+                    {availableTravelStyles.map((style) => {
+                      const isSelected = selectedTravelStyleIds.includes(
+                        style.id,
+                      );
+                      return (
+                        <button
+                          key={style.id}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedTravelStyleIds(
+                                selectedTravelStyleIds.filter(
+                                  (id) => id !== style.id,
+                                ),
+                              );
+                            } else {
+                              setSelectedTravelStyleIds([
+                                ...selectedTravelStyleIds,
+                                style.id,
+                              ]);
+                            }
+                          }}
+                          style={{
+                            padding: "10px 16px",
+                            fontSize: "0.875rem",
+                            fontWeight: isSelected ? 600 : 500,
+                            color: isSelected
+                              ? "var(--primary)"
+                              : "var(--text)",
+                            background: isSelected
+                              ? "var(--primary-light)"
+                              : "var(--bg-elevated)",
+                            border: isSelected
+                              ? "2px solid var(--primary)"
+                              : "1px solid var(--border)",
+                            borderRadius: 999,
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 6,
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isSelected) {
+                              e.currentTarget.style.background =
+                                "var(--bg-hover)";
+                              e.currentTarget.style.borderColor =
+                                "var(--primary)";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isSelected) {
+                              e.currentTarget.style.background =
+                                "var(--bg-elevated)";
+                              e.currentTarget.style.borderColor =
+                                "var(--border)";
+                            }
+                          }}
+                        >
+                          {isSelected && (
+                            <span style={{ fontSize: "0.75rem" }}>✓</span>
+                          )}
+                          {style.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Bio field */}
+              <div style={{ marginBottom: 24 }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: 8,
+                    fontWeight: 500,
+                    color: "var(--text)",
+                  }}
+                >
+                  Bio
+                </label>
+                <textarea
+                  className="input-field"
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Tell us about yourself"
+                  rows={4}
+                  style={{ resize: "vertical", minHeight: 100, width: "100%" }}
+                />
               </div>
 
               <section
@@ -844,7 +1143,7 @@ export function Profile() {
                     gap: 8,
                   }}
                 >
-                  <span>✉️</span> {profile?.email || user?.email || "—"}
+                  <span>✉️</span> {user?.email || "—"}
                 </p>
                 <p
                   style={{
@@ -855,201 +1154,6 @@ export function Profile() {
                 >
                   1 day ago
                 </p>
-              </section>
-
-              <section
-                style={{
-                  paddingTop: 24,
-                  marginTop: 24,
-                  borderTop: "1px solid var(--border)",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: 16,
-                  }}
-                >
-                  <h3
-                    style={{
-                      fontSize: "1rem",
-                      fontWeight: 600,
-                      margin: 0,
-                      color: "var(--text)",
-                    }}
-                  >
-                    Preferences
-                  </h3>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{ width: "auto", padding: "8px 16px" }}
-                    onClick={() =>
-                      editingPreferences
-                        ? handleSavePreferences()
-                        : setEditingPreferences(true)
-                    }
-                    disabled={savingPreferences}
-                  >
-                    {editingPreferences
-                      ? savingPreferences
-                        ? "Saving…"
-                        : "Save"
-                      : "Edit"}
-                  </button>
-                </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 24,
-                  }}
-                >
-                  <div className="input-wrap" style={{ gridColumn: "1 / -1" }}>
-                    <label>Interests (comma-separated)</label>
-                    <input
-                      type="text"
-                      className="input-field"
-                      value={interestsInput}
-                      onChange={(e) => setInterestsInput(e.target.value)}
-                      readOnly={!editingPreferences}
-                      placeholder="e.g. travel, hiking, food"
-                      style={
-                        !editingPreferences
-                          ? { background: "var(--bg)", cursor: "default" }
-                          : undefined
-                      }
-                    />
-                  </div>
-                  <div className="input-wrap">
-                    <label>Min age</label>
-                    <input
-                      type="number"
-                      className="input-field"
-                      min={18}
-                      max={100}
-                      value={minAge === "" ? "" : minAge}
-                      onChange={(e) =>
-                        setMinAge(
-                          e.target.value === "" ? "" : Number(e.target.value),
-                        )
-                      }
-                      readOnly={!editingPreferences}
-                      style={
-                        !editingPreferences
-                          ? { background: "var(--bg)", cursor: "default" }
-                          : undefined
-                      }
-                    />
-                  </div>
-                  <div className="input-wrap">
-                    <label>Max age</label>
-                    <input
-                      type="number"
-                      className="input-field"
-                      min={18}
-                      max={100}
-                      value={maxAge === "" ? "" : maxAge}
-                      onChange={(e) =>
-                        setMaxAge(
-                          e.target.value === "" ? "" : Number(e.target.value),
-                        )
-                      }
-                      readOnly={!editingPreferences}
-                      style={
-                        !editingPreferences
-                          ? { background: "var(--bg)", cursor: "default" }
-                          : undefined
-                      }
-                    />
-                  </div>
-                  <div className="input-wrap">
-                    <label>Preferred gender</label>
-                    {editingPreferences ? (
-                      <select
-                        className="input-field"
-                        value={preferredGender}
-                        onChange={(e) => setPreferredGender(e.target.value)}
-                      >
-                        {PREFERRED_GENDERS.map((g) => (
-                          <option key={g || "_"} value={g}>
-                            {g || "—"}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="text"
-                        className="input-field"
-                        value={preferredGender || "—"}
-                        readOnly
-                        style={{ background: "var(--bg)", cursor: "default" }}
-                      />
-                    )}
-                  </div>
-                  <div className="input-wrap">
-                    <label>Budget (min)</label>
-                    <input
-                      type="number"
-                      className="input-field"
-                      min={0}
-                      value={budgetMin === "" ? "" : budgetMin}
-                      onChange={(e) =>
-                        setBudgetMin(
-                          e.target.value === "" ? "" : Number(e.target.value),
-                        )
-                      }
-                      readOnly={!editingPreferences}
-                      style={
-                        !editingPreferences
-                          ? { background: "var(--bg)", cursor: "default" }
-                          : undefined
-                      }
-                    />
-                  </div>
-                  <div className="input-wrap">
-                    <label>Budget (max)</label>
-                    <input
-                      type="number"
-                      className="input-field"
-                      min={0}
-                      value={budgetMax === "" ? "" : budgetMax}
-                      onChange={(e) =>
-                        setBudgetMax(
-                          e.target.value === "" ? "" : Number(e.target.value),
-                        )
-                      }
-                      readOnly={!editingPreferences}
-                      style={
-                        !editingPreferences
-                          ? { background: "var(--bg)", cursor: "default" }
-                          : undefined
-                      }
-                    />
-                  </div>
-                  <div className="input-wrap">
-                    <label>Currency</label>
-                    <select
-                      className="input-field"
-                      value={budgetCurrency}
-                      onChange={(e) => setBudgetCurrency(e.target.value)}
-                      disabled={!editingPreferences}
-                      style={
-                        !editingPreferences
-                          ? { background: "var(--bg)", cursor: "default" }
-                          : undefined
-                      }
-                    >
-                      {CURRENCIES.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
               </section>
             </div>
           </div>
@@ -1081,18 +1185,18 @@ export function Profile() {
                   color: "var(--text)",
                 }}
               >
-                My requests
+                My Trip Vacancies
               </h3>
               <button
                 type="button"
                 className="btn btn-primary"
                 style={{ width: "auto", padding: "8px 20px" }}
-                onClick={openCreateRequestModal}
+                onClick={openCreateVacancyModal}
               >
-                Create request
+                Create Vacancy
               </button>
             </div>
-            {requestError && (
+            {vacancyError && (
               <p
                 style={{
                   color: "var(--status-error)",
@@ -1101,14 +1205,14 @@ export function Profile() {
                 }}
                 role="alert"
               >
-                {requestError}
+                {vacancyError}
               </p>
             )}
-            {loadingRequests ? (
-              <p style={{ color: "var(--text-muted)" }}>Загрузка…</p>
-            ) : myRequests.length === 0 ? (
+            {loadingVacancies ? (
+              <p style={{ color: "var(--text-muted)" }}>Loading…</p>
+            ) : myVacancies.length === 0 ? (
               <p style={{ color: "var(--text-muted)", margin: 0 }}>
-                You have no requests yet. Create your first one!
+                You have no vacancies yet. Create your first one!
               </p>
             ) : (
               <div
@@ -1118,9 +1222,9 @@ export function Profile() {
                   gap: 16,
                 }}
               >
-                {myRequests.map((r) => (
+                {myVacancies.map((v) => (
                   <div
-                    key={r.id}
+                    key={v.id}
                     className="card-premium"
                     style={{
                       padding: 20,
@@ -1137,7 +1241,7 @@ export function Profile() {
                         margin: "0 0 4px",
                       }}
                     >
-                      {formatRequestDestination(r.destination)}
+                      {formatVacancyDestination(v)}
                     </h4>
                     <p
                       style={{
@@ -1146,8 +1250,8 @@ export function Profile() {
                         margin: 0,
                       }}
                     >
-                      {formatRequestDate(r.startDate)} —{" "}
-                      {formatRequestDate(r.endDate)}
+                      {formatRequestDate(v.start_date)} —{" "}
+                      {formatRequestDate(v.end_date)}
                     </p>
                     <p
                       style={{
@@ -1156,9 +1260,18 @@ export function Profile() {
                         margin: 0,
                       }}
                     >
-                      Бюджет: {formatRequestBudget(r.budget)}
+                      Budget: {formatVacancyBudget(v)}
                     </p>
-                    {r.status && (
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "var(--text-muted)",
+                        margin: 0,
+                      }}
+                    >
+                      People needed: {v.people_needed}
+                    </p>
+                    {v.status && (
                       <span
                         style={{
                           display: "inline-block",
@@ -1171,7 +1284,7 @@ export function Profile() {
                           width: "fit-content",
                         }}
                       >
-                        {r.status}
+                        {v.status}
                       </span>
                     )}
                     <div
@@ -1184,7 +1297,7 @@ export function Profile() {
                       <button
                         type="button"
                         className="btn btn-secondary"
-                        onClick={() => openEditRequestModal(r)}
+                        onClick={() => openEditVacancyModal(v)}
                         style={{ flex: 1, padding: "8px 16px" }}
                       >
                         Edit
@@ -1192,8 +1305,8 @@ export function Profile() {
                       <button
                         type="button"
                         className="btn btn-secondary"
-                        onClick={() => handleDeleteRequest(r.id)}
-                        disabled={deletingId === r.id}
+                        onClick={() => handleDeleteVacancy(v.id)}
+                        disabled={deletingId === v.id}
                         style={{
                           flex: 1,
                           padding: "8px 16px",
@@ -1201,7 +1314,7 @@ export function Profile() {
                           borderColor: "var(--status-error)",
                         }}
                       >
-                        {deletingId === r.id ? "Deleting…" : "Delete"}
+                        {deletingId === v.id ? "Deleting…" : "Delete"}
                       </button>
                     </div>
                   </div>
@@ -1225,15 +1338,15 @@ export function Profile() {
           style={{ display: "none" }}
         />
 
-        {requestModalOpen && (
-          <CreateTripRequestModal
+        {vacancyModalOpen && (
+          <CreateTripVacancyModal
             onClose={() => {
-              setRequestModalOpen(false);
-              setEditingRequest(null);
+              setVacancyModalOpen(false);
+              setEditingVacancy(null);
             }}
-            onCreate={handleCreateRequest}
-            onUpdate={editingRequest ? handleUpdateRequest : undefined}
-            editing={editingRequest}
+            onCreate={handleCreateVacancy}
+            onUpdate={editingVacancy ? handleUpdateVacancy : undefined}
+            editing={editingVacancy}
           />
         )}
       </div>

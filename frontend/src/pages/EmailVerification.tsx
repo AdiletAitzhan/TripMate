@@ -3,14 +3,21 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { authApi } from "../api/authApi";
 import { useAuth } from "../context/useAuth";
 
-const LEN = 6;
+const LEN = 4; // Changed from 6 to 4 to match API spec
 const RESEND_SECONDS = 60;
 
 export function EmailVerification() {
-  const { state } = useLocation() as { state?: { email?: string } };
+  const { state } = useLocation() as {
+    state?: {
+      email?: string;
+      userId?: number;
+      message?: string;
+    };
+  };
   const navigate = useNavigate();
   const { setTokens } = useAuth();
   const email = state?.email ?? "";
+  const userId = state?.userId;
   const [code, setCode] = useState<string[]>(Array(LEN).fill(""));
   const [resendCountdown, setResendCountdown] = useState(0);
   const [error, setError] = useState("");
@@ -49,40 +56,40 @@ export function EmailVerification() {
     e.preventDefault();
     const fullCode = code.join("");
     if (fullCode.length !== LEN) return;
-    if (!email) {
-      setError("Email is missing. Start registration again.");
+    if (!email || !userId) {
+      setError("User information is missing. Start registration again.");
       return;
     }
     setError("");
     setLoading(true);
     try {
-      const res = await authApi.verifyEmail(email, fullCode);
-      if (res.success && res.data) {
-        const user = {
-          id: null,
-          email,
-          name: null,
-          isNewUser: true,
-          profileComplete: false,
-        };
-        setTokens(user, res.data.accessToken, res.data.refreshToken);
-        navigate("/", { replace: true });
-      } else {
-        setError(res.error?.message ?? "Invalid or expired code");
+      const res = await authApi.verifyEmail(userId, fullCode);
+      // New API returns MessageResponse { message: string }
+      if (res.message) {
+        // After successful verification, redirect to login
+        navigate("/login", {
+          state: {
+            message: "Email verified successfully! Please log in.",
+            email: email,
+          },
+          replace: true,
+        });
       }
-    } catch {
-      setError("Something went wrong. Try again.");
+    } catch (err) {
+      const errorMessage = (err as Error).message || "Invalid or expired code";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   const handleResend = async () => {
-    if (resendCountdown > 0 || !email) return;
+    if (resendCountdown > 0 || !userId) return;
     setResendError("");
     try {
-      const res = await authApi.resendVerification(email);
-      if (res.success) {
+      const res = await authApi.resendVerification(userId);
+      // New API returns MessageResponse
+      if (res.message) {
         setResendCountdown(RESEND_SECONDS);
         const t = setInterval(() => {
           setResendCountdown((s) => {
@@ -93,15 +100,13 @@ export function EmailVerification() {
             return s - 1;
           });
         }, 1000);
-      } else {
-        setResendError(res.error?.message ?? "Could not resend code");
       }
-    } catch {
-      setResendError("Something went wrong.");
+    } catch (err) {
+      setResendError((err as Error).message || "Could not resend code");
     }
   };
 
-  if (!email) {
+  if (!email || !userId) {
     return (
       <>
         <div className="grain" aria-hidden="true" />
@@ -109,7 +114,8 @@ export function EmailVerification() {
           <div className="auth-card">
             <h1 className="auth-heading">Verify your email</h1>
             <p className="auth-sub">
-              No email was provided. Start registration to receive a code.
+              No user information was provided. Start registration to receive a
+              code.
             </p>
             <p className="link-row" style={{ marginTop: 24 }}>
               <Link to="/signup/email">Sign up with email</Link>

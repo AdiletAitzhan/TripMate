@@ -3,14 +3,14 @@ import { useNavigate, Link } from "react-router-dom";
 import { TripSearch } from "../components/TripSearch";
 import { TripCard } from "../components/TripCard";
 import { useAuth } from "../context/useAuth";
-import type { TripRequestResponse } from "../types/tripRequest";
+import type { TripVacancyResponse } from "../types/tripRequest";
 
 const BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
 export function Landing() {
   const navigate = useNavigate();
   const { accessToken, isReady } = useAuth();
-  const [tripRequests, setTripRequests] = useState<TripRequestResponse[]>([]);
+  const [tripVacancies, setTripVacancies] = useState<TripVacancyResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -23,30 +23,39 @@ export function Landing() {
     }
   }, [isReady, accessToken, navigate]);
 
-  // Fetch trip requests
+  // Fetch trip vacancies
   useEffect(() => {
-    const fetchTripRequests = async () => {
+    const fetchTripVacancies = async () => {
       try {
         setLoading(true);
-        const apiUrl = `${BASE.replace(/\/$/, "")}/api/trip-requests`;
+        const apiUrl = `${BASE.replace(/\/$/, "")}/api/v1/trip-vacancies`;
         const response = await fetch(apiUrl);
-        const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data?.message || "Failed to fetch trip requests");
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData?.message || "Failed to fetch trip vacancies",
+          );
         }
 
-        if (data.success && Array.isArray(data.data)) {
-          setTripRequests(data.data);
+        const data = await response.json();
+
+        // API returns array directly
+        if (Array.isArray(data)) {
+          setTripVacancies(data);
+        } else {
+          console.error("Unexpected data format:", data);
+          setTripVacancies([]);
         }
       } catch (err) {
+        console.error("Error fetching trip vacancies:", err);
         setError(err instanceof Error ? err.message : "Failed to load trips");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTripRequests();
+    fetchTripVacancies();
   }, []);
 
   // Fixed header scrolled state
@@ -404,19 +413,19 @@ export function Landing() {
                 <p>{error}</p>
               </div>
             )}
-            {!loading && !error && tripRequests.length === 0 && (
+            {!loading && !error && tripVacancies.length === 0 && (
               <div className="trips-empty">
                 <p>
                   No trip requests available at the moment. Check back soon.
                 </p>
               </div>
             )}
-            {!loading && !error && tripRequests.length > 0 && (
+            {!loading && !error && tripVacancies.length > 0 && (
               <div className="trips-grid">
-                {tripRequests.map((request) => (
+                {tripVacancies.map((vacancy) => (
                   <TripCard
-                    key={request.id}
-                    tripRequest={request}
+                    key={vacancy.id}
+                    tripVacancy={vacancy}
                     onOfferClick={() => navigate("/login")}
                   />
                 ))}

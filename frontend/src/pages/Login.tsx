@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { authApi } from "../api/authApi";
 import { useAuth } from "../context/useAuth";
 
@@ -7,15 +7,20 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function Login() {
   const navigate = useNavigate();
-  const { setTokens } = useAuth();
-  const [email, setEmail] = useState("");
+  const location = useLocation();
+  const { setTokens, checkProfile } = useAuth();
+  const [email, setEmail] = useState((location.state as any)?.email || "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState(
+    (location.state as any)?.message || "",
+  );
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSuccessMessage("");
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
       setError("Email is required");
@@ -32,14 +37,32 @@ export function Login() {
     setLoading(true);
     try {
       const res = await authApi.login(trimmedEmail, password);
-      if (res.success && res.data) {
-        setTokens(res.data.user, res.data.accessToken, res.data.refreshToken);
-        navigate("/home", { replace: true });
+      // New API returns AuthResponse { access_token, user }
+      if (res.access_token && res.user) {
+        const user = {
+          id: String(res.user.id),
+          email: res.user.email,
+          name: null,
+          isNewUser: !res.user.is_verified,
+          profileComplete: res.user.is_verified,
+        };
+        setTokens(user, res.access_token, res.access_token); // Using access_token for both since no refresh token
+
+        // Check if user has a profile
+        const hasProfile = await checkProfile();
+
+        if (hasProfile) {
+          navigate("/home", { replace: true });
+        } else {
+          navigate("/create-profile", { replace: true });
+        }
       } else {
-        setError(res.error?.message ?? "Invalid email or password");
+        setError("Invalid response from server");
       }
-    } catch {
-      setError("Something went wrong. Try again.");
+    } catch (err) {
+      const errorMessage =
+        (err as Error).message || "Invalid email or password";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -86,6 +109,14 @@ export function Login() {
                   Forgot password?
                 </Link>
               </div>
+              {successMessage && (
+                <div
+                  className="auth-success"
+                  style={{ color: "green", marginBottom: "12px" }}
+                >
+                  {successMessage}
+                </div>
+              )}
               {error && <div className="auth-error">{error}</div>}
               <button
                 type="submit"
