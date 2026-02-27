@@ -163,7 +163,7 @@ export function TripRequestDetail() {
               className={`sidebar-link ${location.pathname.startsWith("/requests") ? "active" : ""}`}
               onClick={closeSidebar}
             >
-              My Requests
+              Requests
             </Link>
             <Link
               to="/offers"

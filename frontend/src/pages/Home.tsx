@@ -269,7 +269,7 @@ export function Home() {
               className={`sidebar-link ${location.pathname === "/requests" ? "active" : ""}`}
               onClick={closeSidebar}
             >
-              My Requests
+              Requests
             </Link>
             <Link
               to="/offers"
