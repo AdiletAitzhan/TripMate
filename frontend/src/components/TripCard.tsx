@@ -7,8 +7,10 @@ interface TripCardProps {
   tripRequest?: TripRequestResponse;
   tripVacancy?: TripVacancyResponse;
   onOfferClick?: () => void;
+  hasAlreadyOffered?: boolean;
+  offerStatus?: string; // 'pending', 'accepted', 'rejected'
+  isLandingPage?: boolean; // Flag for landing page styling and behavior
   // Legacy props for backward compatibility
-  image?: string;
   destination?: string;
   country?: string;
   duration?: string;
@@ -63,7 +65,9 @@ export function TripCard({
   tripRequest,
   tripVacancy,
   onOfferClick,
-  image: legacyImage,
+  hasAlreadyOffered = false,
+  offerStatus,
+  isLandingPage = false,
   destination: legacyDestination,
   country: legacyCountry,
   duration: legacyDuration,
@@ -93,17 +97,35 @@ export function TripCard({
 
   const price = tripVacancy?.max_budget
     ? Number(tripVacancy.max_budget)
-    : tripRequest?.budget?.amount || legacyPrice || 0;
+    : tripVacancy?.min_budget
+      ? Number(tripVacancy.min_budget)
+      : tripRequest?.budget?.amount || legacyPrice || 0;
 
   const currency = tripVacancy ? "KZT" : tripRequest?.budget?.currency || "USD";
   const matchCount = tripRequest?.matchCount || 0;
   const peopleNeeded = tripVacancy?.people_needed;
 
+  // Determine budget label for trip vacancies
+  let budgetLabel = "budget";
+  if (tripVacancy) {
+    if (tripVacancy.min_budget && tripVacancy.max_budget) {
+      budgetLabel = "budget range";
+    } else if (tripVacancy.min_budget) {
+      budgetLabel = "min budget";
+    } else if (tripVacancy.max_budget) {
+      budgetLabel = "max budget";
+    }
+  }
+
   // Generate gradient background based on destination
   const backgroundGradient = getDestinationColor(destination);
+
+  // Button text based on context
+  const buttonText = isLandingPage ? "See details" : "Offer to Join";
+
   return (
     <div
-      className={`trip-card ${featured ? "trip-card-featured" : ""}`}
+      className={`trip-card ${featured ? "trip-card-featured" : ""} ${isLandingPage ? "trip-card-landing" : ""}`}
       data-aos="fade-up"
     >
       {trending && (
@@ -138,14 +160,25 @@ export function TripCard({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: "white",
+            color: "rgba(255, 255, 255, 0.95)",
             fontSize: "2.5rem",
             fontWeight: "700",
-            textShadow: "0 2px 8px rgba(0,0,0,0.3)",
+            textShadow: "0 4px 12px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.3)",
             minHeight: "200px",
+            position: "relative",
           }}
         >
-          {destination.charAt(0).toUpperCase()}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "rgba(0, 0, 0, 0.15)",
+              zIndex: 1,
+            }}
+          />
+          <span style={{ position: "relative", zIndex: 2 }}>
+            {destination.charAt(0).toUpperCase()}
+          </span>
         </div>
         {!tripRequest && !tripVacancy && (
           <div className="trip-overlay">
@@ -180,24 +213,70 @@ export function TripCard({
         {tripVacancy && (
           <div className="trip-dates">
             <div className="trip-date-item">
-              <span className="trip-date-label">Start:</span>
               <span className="trip-date-value">
-                {formatDate(tripVacancy.start_date)}
-              </span>
-            </div>
-            <div className="trip-date-item">
-              <span className="trip-date-label">End:</span>
-              <span className="trip-date-value">
+                {formatDate(tripVacancy.start_date)} -{" "}
                 {formatDate(tripVacancy.end_date)}
               </span>
             </div>
+            {tripVacancy.description && (
+              <div className="trip-date-item">
+                <span className="trip-date-value">
+                  {tripVacancy.description}
+                </span>
+              </div>
+            )}
           </div>
         )}
         <div className="trip-details">
           <div className="trip-detail-item">
             <span>{duration}</span>
           </div>
-          {!tripRequest && legacyTravelers && (
+          {tripVacancy && peopleNeeded && (
+            <div className="trip-detail-item">
+              <span>
+                {peopleNeeded} {peopleNeeded === 1 ? "spot" : "spots"} available
+              </span>
+            </div>
+          )}
+          {tripVacancy &&
+            tripVacancy.transportation_preference &&
+            tripVacancy.transportation_preference !== "Any" && (
+              <div className="trip-detail-item">
+                <span>Transport: {tripVacancy.transportation_preference}</span>
+              </div>
+            )}
+          {tripVacancy &&
+            tripVacancy.accommodation_preference &&
+            tripVacancy.accommodation_preference !== "Any" && (
+              <div className="trip-detail-item">
+                <span>
+                  Accommodation: {tripVacancy.accommodation_preference}
+                </span>
+              </div>
+            )}
+          {tripVacancy &&
+            tripVacancy.gender_preference &&
+            tripVacancy.gender_preference !== "Any" && (
+              <div className="trip-detail-item">
+                <span>{tripVacancy.gender_preference} only</span>
+              </div>
+            )}
+          {tripVacancy && (tripVacancy.min_age || tripVacancy.max_age) && (
+            <div className="trip-detail-item">
+              <span>
+                Age: {tripVacancy.min_age || "?"}-{tripVacancy.max_age || "?"}
+              </span>
+            </div>
+          )}
+          {tripVacancy && price > 0 && (
+            <div className="trip-detail-item">
+              <span>
+                Budget: {currency === "USD" ? "$" : currency + " "}
+                {price.toLocaleString()}
+              </span>
+            </div>
+          )}
+          {!tripRequest && !tripVacancy && legacyTravelers && (
             <div className="trip-detail-item">
               <span>{legacyTravelers} travelers</span>
             </div>
@@ -209,18 +288,45 @@ export function TripCard({
               <span className="trip-price-amount">
                 {currency === "USD" ? "$" : currency + " "}
                 {price.toLocaleString()}
-                {tripVacancy && onOfferClick && (
-                  <button
-                    className="trip-book-btn"
-                    onClick={onOfferClick}
-                    aria-label={`Offer to join trip to ${destination}`}
-                  >
-                    Offer to Join
-                  </button>
-                )}{" "}
               </span>
-              <span className="trip-price-label">budget</span>
+              <span className="trip-price-label">{budgetLabel}</span>
             </div>
+          )}
+          {tripVacancy && onOfferClick && !hasAlreadyOffered && (
+            <button
+              className="trip-book-btn"
+              onClick={onOfferClick}
+              aria-label={
+                isLandingPage
+                  ? `See details for ${destination}`
+                  : `Offer to join trip to ${destination}`
+              }
+            >
+              {buttonText}
+            </button>
+          )}
+          {tripVacancy && hasAlreadyOffered && (
+            <button
+              className="trip-book-btn"
+              disabled
+              style={{
+                background:
+                  offerStatus === "accepted"
+                    ? "#10b981"
+                    : offerStatus === "rejected"
+                      ? "#ef4444"
+                      : "#6b7280",
+                cursor: "not-allowed",
+                opacity: 0.8,
+              }}
+              aria-label={`Already offered to ${destination}`}
+            >
+              {offerStatus === "accepted"
+                ? "✓ Accepted"
+                : offerStatus === "rejected"
+                  ? "✗ Declined"
+                  : "⏳ Offer Pending"}
+            </button>
           )}
           {tripRequest && onOfferClick && (
             <button
@@ -231,7 +337,7 @@ export function TripCard({
               Offer to Join
             </button>
           )}
-          {!tripRequest && (
+          {!tripRequest && !tripVacancy && (
             <button
               className="trip-book-btn"
               aria-label={`Book trip to ${destination}`}

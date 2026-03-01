@@ -9,8 +9,10 @@ import type { FilterValues } from "../components/AdvancedFilterSearch";
 import { useAuth } from "../context/useAuth";
 import { useTripVacanciesApi } from "../hooks/useTripVacanciesApi";
 import { profilesApi } from "../api/profilesApi";
+import { offersApi } from "../api/offersApi";
 import type { TripVacancyResponse } from "../types/tripRequest";
 import type { ProfileDetailResponse } from "../types/profile";
+import type { OfferResponse } from "../types/offer";
 
 function formatDate(s: string | undefined): string {
   if (!s) return "—";
@@ -55,6 +57,7 @@ export function Home() {
   const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const [myOffers, setMyOffers] = useState<OfferResponse[]>([]);
 
   const [searchCity, setSearchCity] = useState("");
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -81,12 +84,22 @@ export function Home() {
       .finally(() => setLoading(false));
   };
 
+  const loadMyOffers = async () => {
+    try {
+      const offers = await offersApi.getMyOffers();
+      setMyOffers(offers);
+    } catch (e) {
+      console.error("Failed to load offers:", e);
+    }
+  };
+
   useEffect(() => {
     if (!isReady || (!accessToken && !refreshToken)) {
       setLoading(false);
       return;
     }
     loadVacancies();
+    loadMyOffers();
   }, [isReady, accessToken, refreshToken]);
 
   const clearAllFilters = () => {

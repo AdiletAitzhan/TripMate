@@ -9,8 +9,15 @@ export function SignUpOptions() {
           <h1 className="auth-heading">Create account</h1>
           <p className="auth-sub">One account. Your trips. Your crew.</p>
 
-          <Link to="/signup/email">
-            <button type="button" className="btn btn-secondary">
+          <Link
+            to="/signup/email"
+            style={{ textDecoration: "none", width: "100%" }}
+          >
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ width: "100%" }}
+            >
               Sign up with email
             </button>
           </Link>

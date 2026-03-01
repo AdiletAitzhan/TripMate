@@ -10,7 +10,7 @@ import { profilesApi } from "../api/profilesApi";
 import { offersApi } from "../api/offersApi";
 import type { TripVacancyResponse } from "../types/tripRequest";
 import type { ProfileDetailResponse } from "../types/profile";
-import type { OfferCreateRequest } from "../types/offer";
+import type { OfferCreateRequest, OfferResponse } from "../types/offer";
 
 function formatDate(s: string | undefined): string {
   if (!s) return "—";
@@ -68,7 +68,7 @@ export function TripRequestDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { clearAuth, isReady, accessToken, refreshToken } = useAuth();
+  const { clearAuth, isReady, accessToken, refreshToken, user } = useAuth();
   const { getVacancyById } = useTripVacanciesApi();
 
   const [vacancy, setVacancy] = useState<TripVacancyResponse | null>(null);
@@ -88,6 +88,11 @@ export function TripRequestDetail() {
   const [isJoinTripModalOpen, setIsJoinTripModalOpen] = useState(false);
   const [offerSuccess, setOfferSuccess] = useState(false);
 
+  // Track existing offer
+  const [existingOffer, setExistingOffer] = useState<OfferResponse | null>(
+    null,
+  );
+
   useEffect(() => {
     if (!id || !isReady || (!accessToken && !refreshToken)) {
       setLoading(false);
@@ -100,6 +105,23 @@ export function TripRequestDetail() {
       .catch((e) => setError(e?.message ?? "Failed to load trip vacancy"))
       .finally(() => setLoading(false));
   }, [id, isReady, accessToken, refreshToken, getVacancyById]);
+
+  // Check if user has already offered to this vacancy
+  useEffect(() => {
+    if (!id || !isReady || (!accessToken && !refreshToken)) {
+      return;
+    }
+
+    offersApi
+      .getMyOffers()
+      .then((offers) => {
+        const offer = offers.find((o) => o.trip_vacancy_id === Number(id));
+        setExistingOffer(offer || null);
+      })
+      .catch((e) => {
+        console.error("Failed to load offers:", e);
+      });
+  }, [id, isReady, accessToken, refreshToken]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -159,8 +181,10 @@ export function TripRequestDetail() {
   };
 
   const handleSubmitOffer = async (data: OfferCreateRequest) => {
-    await offersApi.create(data);
+    const newOffer = await offersApi.create(data);
+    setExistingOffer(newOffer);
     setOfferSuccess(true);
+    setIsJoinTripModalOpen(false);
     // Optionally show a success message
     setTimeout(() => {
       setOfferSuccess(false);
@@ -392,20 +416,54 @@ export function TripRequestDetail() {
                     >
                       👤 View Profile
                     </button>
-                    <button
-                      onClick={handleJoinTrip}
-                      type="button"
-                      className="btn btn-primary"
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        padding: "12px 24px",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      ✈️ Join Trip
-                    </button>
+                    {user?.id !== String(vacancy.requester_id) &&
+                      !existingOffer && (
+                        <button
+                          onClick={handleJoinTrip}
+                          type="button"
+                          className="btn btn-primary"
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            padding: "12px 24px",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          ✈️ Join Trip
+                        </button>
+                      )}
+                    {user?.id !== String(vacancy.requester_id) &&
+                      existingOffer && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          disabled
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            padding: "12px 24px",
+                            whiteSpace: "nowrap",
+                            background:
+                              existingOffer.status === "accepted"
+                                ? "#10b981"
+                                : existingOffer.status === "rejected"
+                                  ? "#ef4444"
+                                  : "#6b7280",
+                            color: "white",
+                            cursor: "not-allowed",
+                            opacity: 0.9,
+                            border: "none",
+                          }}
+                        >
+                          {existingOffer.status === "accepted"
+                            ? "✓ Offer Accepted"
+                            : existingOffer.status === "rejected"
+                              ? "✗ Offer Declined"
+                              : "⏳ Offer Pending"}
+                        </button>
+                      )}
                   </div>
                 </div>
               </div>
