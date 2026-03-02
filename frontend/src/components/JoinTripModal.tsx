@@ -84,7 +84,7 @@ export function JoinTripModal({
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
         style={{
-          backgroundColor: "var(--bg-surface)",
+          backgroundColor: "var(--card-bg)",
           borderRadius: "12px",
           padding: "32px",
           maxWidth: "500px",
@@ -92,6 +92,7 @@ export function JoinTripModal({
           maxHeight: "90vh",
           overflow: "auto",
           boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+          border: "1px solid var(--border)",
         }}
       >
         <div

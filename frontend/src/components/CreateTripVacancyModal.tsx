@@ -202,6 +202,7 @@ export function CreateTripVacancyModal({
           borderRadius: 16,
           boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
           background: "var(--card-bg)",
+          border: "1px solid var(--border)",
         }}
       >
         <div
