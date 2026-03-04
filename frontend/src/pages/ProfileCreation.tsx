@@ -19,6 +19,7 @@ export function ProfileCreation() {
     getAllLanguages,
     getAllInterests,
     getAllTravelStyles,
+    uploadProfilePhoto,
   } = useProfilesApi();
 
   // Available options from backend
@@ -46,6 +47,8 @@ export function ProfileCreation() {
   const [country, setCountry] = useState("");
   const [city, setCity] = useState("");
   const [bio, setBio] = useState("");
+  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
   // Selected IDs for multi-select fields
   const [selectedLanguageIds, setSelectedLanguageIds] = useState<number[]>([]);
@@ -82,6 +85,29 @@ export function ProfileCreation() {
     };
     loadOptions();
   }, [getAllLanguages, getAllInterests, getAllTravelStyles]);
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        setError("Please select a valid image file");
+        return;
+      }
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError("Image size must be less than 5MB");
+        return;
+      }
+      setProfilePhoto(file);
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,6 +147,16 @@ export function ProfileCreation() {
 
       if (promises.length > 0) {
         await Promise.all(promises);
+      }
+
+      // Upload profile photo if selected
+      if (profilePhoto) {
+        try {
+          await uploadProfilePhoto(profilePhoto);
+        } catch (photoError) {
+          console.error("Failed to upload profile photo:", photoError);
+          // Don't fail the entire profile creation if photo upload fails
+        }
       }
 
       // Update hasProfile state
@@ -321,6 +357,46 @@ export function ProfileCreation() {
                   rows={3}
                   style={{ resize: "vertical", minHeight: 80 }}
                 />
+              </div>
+
+              {/* Profile Photo */}
+              <div className="input-wrap">
+                <label>Profile Photo (optional)</label>
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 12 }}
+                >
+                  {photoPreview && (
+                    <div style={{ display: "flex", justifyContent: "center" }}>
+                      <img
+                        src={photoPreview}
+                        alt="Profile preview"
+                        style={{
+                          width: 120,
+                          height: 120,
+                          borderRadius: "50%",
+                          objectFit: "cover",
+                          border: "2px solid var(--border)",
+                        }}
+                      />
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoChange}
+                    className="input-field"
+                    style={{ padding: "10px" }}
+                  />
+                  <p
+                    style={{
+                      fontSize: "0.8125rem",
+                      color: "var(--text-muted)",
+                      margin: 0,
+                    }}
+                  >
+                    Max size: 5MB. Supported formats: JPG, PNG, GIF
+                  </p>
+                </div>
               </div>
 
               {/* Languages Multi-select */}

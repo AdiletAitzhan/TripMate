@@ -32,14 +32,11 @@ export function ResetPassword() {
     }
     setLoading(true);
     try {
-      const res = await authApi.resetPassword(token, newPassword);
-      if (res.success) {
-        setSuccess(true);
-      } else {
-        setError(res.error?.message ?? "Failed to reset password");
-      }
-    } catch {
-      setError("Something went wrong. Try again.");
+      await authApi.resetPassword(token, newPassword);
+      // If we reach here, the request was successful (200 response)
+      setSuccess(true);
+    } catch (err: any) {
+      setError(err?.message ?? "Something went wrong. Try again.");
     } finally {
       setLoading(false);
     }

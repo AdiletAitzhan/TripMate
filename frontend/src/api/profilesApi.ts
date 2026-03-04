@@ -96,6 +96,39 @@ export const profilesApi = {
     return handleResponse<MessageResponse>(response);
   },
 
+  // Profile Photo
+  async uploadProfilePhoto(file: File): Promise<ProfileResponse> {
+    const token = sessionStorage.getItem("tripmate_access");
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(`${BASE}/api/v1/profiles/me/photo`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    if (response.status === 401) {
+      sessionStorage.removeItem("tripmate_access");
+      sessionStorage.removeItem("tripmate_refresh");
+      sessionStorage.removeItem("tripmate_user");
+      window.location.href = "/login";
+      throw new Error("Unauthorized");
+    }
+
+    return handleResponse<ProfileResponse>(response);
+  },
+
+  async deleteProfilePhoto(): Promise<ProfileResponse> {
+    const response = await fetchWithAuth(`${BASE}/api/v1/profiles/me/photo`, {
+      method: "DELETE",
+    });
+    return handleResponse<ProfileResponse>(response);
+  },
+
   // Languages
   async setLanguages(languageIds: number[]): Promise<MessageResponse> {
     const response = await fetchWithAuth(

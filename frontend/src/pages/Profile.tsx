@@ -32,9 +32,29 @@ const PROFILE_GENDER_KEY = "tripmate_profile_gender";
 const PROFILE_TIMEZONE_KEY = "tripmate_profile_timezone";
 
 /** Подмена minio:9000 на localhost:9000, чтобы браузер мог загрузить фото (бэк отдаёт внутренний хост). */
-function photoUrlForBrowser(url: string | undefined): string | undefined {
+export function photoUrlForBrowser(
+  url: string | undefined,
+): string | undefined {
   if (!url) return undefined;
-  return url.replace(/http:\/\/minio:9000/, "http://localhost:9000");
+
+  // If it's a relative path, prepend the API base URL
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    const apiBase =
+      import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+    return `${apiBase}/${url.replace(/^\//, "")}`;
+  }
+
+  // Transform internal minio URLs to localhost
+  let transformedUrl = url.replace(
+    /http:\/\/minio:9000/,
+    "http://localhost:9000",
+  );
+  // Transform 127.0.0.1 URLs to use the API base if available
+  const apiBase = import.meta.env.VITE_API_BASE_URL;
+  if (apiBase && transformedUrl.includes("127.0.0.1:8000")) {
+    transformedUrl = transformedUrl.replace("http://127.0.0.1:8000", apiBase);
+  }
+  return transformedUrl;
 }
 
 function formatRequestDate(s: string | undefined): string {
@@ -77,6 +97,8 @@ export function Profile() {
     getAllLanguages,
     getAllInterests,
     getAllTravelStyles,
+    uploadProfilePhoto,
+    deleteProfilePhoto,
   } = useProfilesApi();
   const [profile, setProfile] = useState<ProfileDetailResponse | null>(null);
 
@@ -128,9 +150,21 @@ export function Profile() {
     useState<TripVacancyResponse | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  const photoDisplayUrl = photoUrlForBrowser(
-    profile?.profile_photo_url ?? undefined,
-  );
+  // Use profile_photo field (relative path from backend) or profile_photo_url (full URL)
+  const photoDisplayUrl =
+    profile?.profile_photo || profile?.profile_photo_url
+      ? photoUrlForBrowser(profile.profile_photo || profile.profile_photo_url)
+      : undefined;
+
+  // Debug logging for photo URL
+  useEffect(() => {
+    if (profile) {
+      console.log("Profile data:", profile);
+      console.log("Profile photo:", profile.profile_photo);
+      console.log("Profile photo URL:", profile.profile_photo_url);
+      console.log("Transformed photo URL:", photoDisplayUrl);
+    }
+  }, [profile, photoDisplayUrl]);
 
   // Close sidebar when clicking outside
   useEffect(() => {
@@ -357,13 +391,28 @@ export function Profile() {
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      setError("Please select a valid image file");
+      e.target.value = "";
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image size must be less than 5MB");
+      e.target.value = "";
+      return;
+    }
+
     setUploadingPhoto(true);
     setError(null);
     try {
-      // TODO: Implement photo upload
-      // For now, this is a placeholder
-      console.warn("Photo upload not implemented");
-      setError("Photo upload feature coming soon");
+      await uploadProfilePhoto(file);
+      // Reload profile to get the new photo URL
+      const updatedProfile = await getMyProfile();
+      setProfile(updatedProfile);
     } catch (err: unknown) {
       setError((err as Error)?.message ?? "Failed to upload photo");
     } finally {
@@ -619,7 +668,7 @@ export function Profile() {
                     flexShrink: 0,
                     position: "relative",
                     background: photoDisplayUrl
-                      ? `center/cover url(${photoDisplayUrl})`
+                      ? `url("${photoDisplayUrl}") center/cover`
                       : "var(--primary-light)",
                   }}
                 >

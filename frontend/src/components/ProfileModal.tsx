@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import type { ProfileDetailResponse } from "../types/profile";
+import { photoUrlForBrowser } from "../pages/Profile";
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -153,8 +154,12 @@ export function ProfileModal({
                   width: "100px",
                   height: "100px",
                   borderRadius: "50%",
-                  background: profile.profile_photo_url
-                    ? `url(${profile.profile_photo_url}) center/cover`
+                  background: photoUrlForBrowser(
+                    profile.profile_photo ||
+                      profile.profile_photo_url ||
+                      undefined,
+                  )
+                    ? `url("${photoUrlForBrowser(profile.profile_photo || profile.profile_photo_url || undefined)}") center/cover`
                     : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
                   display: "flex",
                   alignItems: "center",
@@ -164,7 +169,11 @@ export function ProfileModal({
                   fontWeight: "700",
                 }}
               >
-                {!profile.profile_photo_url &&
+                {!photoUrlForBrowser(
+                  profile.profile_photo ||
+                    profile.profile_photo_url ||
+                    undefined,
+                ) &&
                   `${profile.first_name.charAt(0)}${profile.last_name.charAt(0)}`.toUpperCase()}
               </div>
             </div>

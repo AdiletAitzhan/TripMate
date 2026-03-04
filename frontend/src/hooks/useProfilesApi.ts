@@ -42,6 +42,18 @@ export function useProfilesApi() {
     return profilesApi.deleteMyProfile();
   }, []);
 
+  // Profile Photo
+  const uploadProfilePhoto = useCallback(
+    async (file: File): Promise<ProfileResponse> => {
+      return profilesApi.uploadProfilePhoto(file);
+    },
+    [],
+  );
+
+  const deleteProfilePhoto = useCallback(async (): Promise<ProfileResponse> => {
+    return profilesApi.deleteProfilePhoto();
+  }, []);
+
   // Languages
   const setLanguages = useCallback(
     async (languageIds: number[]): Promise<MessageResponse> => {
@@ -130,6 +142,8 @@ export function useProfilesApi() {
     getProfile,
     updateMyProfile,
     deleteMyProfile,
+    uploadProfilePhoto,
+    deleteProfilePhoto,
     // Languages
     setLanguages,
     addLanguage,

@@ -4,6 +4,7 @@ interface CitySearchBarProps {
   searchCity: string;
   onSearchCityChange: (city: string) => void;
   onOpenFilters: () => void;
+  onSearch: () => void;
   hasActiveFilters: boolean;
 }
 
@@ -35,6 +36,7 @@ export function CitySearchBar({
   searchCity,
   onSearchCityChange,
   onOpenFilters,
+  onSearch,
   hasActiveFilters,
 }: CitySearchBarProps) {
   const [isFocused, setIsFocused] = useState(false);
@@ -76,11 +78,19 @@ export function CitySearchBar({
   const handleSuggestionClick = (city: string) => {
     onSearchCityChange(city);
     setIsFocused(false);
+    onSearch();
   };
 
   const handleClear = () => {
     onSearchCityChange("");
     setIsFocused(true);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      setIsFocused(false);
+      onSearch();
+    }
   };
 
   return (
@@ -106,6 +116,7 @@ export function CitySearchBar({
           value={searchCity}
           onChange={(e) => onSearchCityChange(e.target.value)}
           onFocus={() => setIsFocused(true)}
+          onKeyPress={handleKeyPress}
         />
 
         {searchCity && (
@@ -118,6 +129,16 @@ export function CitySearchBar({
             ×
           </button>
         )}
+
+        <button
+          type="button"
+          className="search-submit-btn"
+          onClick={onSearch}
+          aria-label="Search"
+          title="Search"
+        >
+          Search
+        </button>
 
         <button
           type="button"

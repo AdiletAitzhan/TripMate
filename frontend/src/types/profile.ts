@@ -77,6 +77,7 @@ export interface ProfileResponse {
   telegram_handle?: string | null;
   bio?: string | null;
   profile_photo_url?: string | null;
+  profile_photo?: string | null;
 }
 
 export interface ProfileDetailResponse extends ProfileResponse {

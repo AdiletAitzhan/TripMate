@@ -15,6 +15,13 @@ interface TripVacancyFilters {
   status?: string | null;
   start_date_from?: string | null;
   start_date_to?: string | null;
+  min_age?: number | null;
+  max_age?: number | null;
+  min_budget?: number | null;
+  max_budget?: number | null;
+  gender_preference?: string | null;
+  from_city?: string | null;
+  from_country?: string | null;
 }
 
 async function fetchWithAuth(
@@ -79,6 +86,19 @@ export const tripVacanciesApi = {
         params.set("start_date_from", filters.start_date_from);
       if (filters.start_date_to)
         params.set("start_date_to", filters.start_date_to);
+      if (filters.min_age !== undefined && filters.min_age !== null)
+        params.set("min_age", String(filters.min_age));
+      if (filters.max_age !== undefined && filters.max_age !== null)
+        params.set("max_age", String(filters.max_age));
+      if (filters.min_budget !== undefined && filters.min_budget !== null)
+        params.set("min_budget", String(filters.min_budget));
+      if (filters.max_budget !== undefined && filters.max_budget !== null)
+        params.set("max_budget", String(filters.max_budget));
+      if (filters.gender_preference)
+        params.set("gender_preference", filters.gender_preference);
+      if (filters.from_city) params.set("from_city", filters.from_city);
+      if (filters.from_country)
+        params.set("from_country", filters.from_country);
     }
 
     const queryString = params.toString();

@@ -76,7 +76,50 @@ export function Home() {
   const loadVacancies = () => {
     setLoading(true);
     setError(null);
-    getAllVacancies()
+
+    // Build API filters from current state
+    const apiFilters: {
+      destination_city?: string | null;
+      destination_country?: string | null;
+      min_age?: number | null;
+      max_age?: number | null;
+      min_budget?: number | null;
+      max_budget?: number | null;
+      gender_preference?: string | null;
+      from_city?: string | null;
+      from_country?: string | null;
+    } = {};
+
+    if (searchCity.trim()) {
+      apiFilters.destination_city = searchCity.trim();
+    }
+    if (filters.mustHave.ageMin !== undefined) {
+      apiFilters.min_age = filters.mustHave.ageMin;
+    }
+    if (filters.mustHave.ageMax !== undefined) {
+      apiFilters.max_age = filters.mustHave.ageMax;
+    }
+    if (filters.mustHave.budgetMin !== undefined) {
+      apiFilters.min_budget = filters.mustHave.budgetMin;
+    }
+    if (filters.mustHave.budgetMax !== undefined) {
+      apiFilters.max_budget = filters.mustHave.budgetMax;
+    }
+    // Only add gender if it's not empty (not "Any")
+    if (filters.mustHave.gender && filters.mustHave.gender.trim() !== "") {
+      apiFilters.gender_preference = filters.mustHave.gender;
+    }
+    if (filters.mustHave.fromCity) {
+      apiFilters.from_city = filters.mustHave.fromCity;
+    }
+    if (filters.mustHave.fromCountry) {
+      apiFilters.from_country = filters.mustHave.fromCountry;
+    }
+    if (filters.mustHave.toCountry) {
+      apiFilters.destination_country = filters.mustHave.toCountry;
+    }
+
+    getAllVacancies(Object.keys(apiFilters).length > 0 ? apiFilters : undefined)
       .then((data) => {
         setVacancies(Array.isArray(data) ? data : []);
       })
@@ -102,6 +145,12 @@ export function Home() {
     loadMyOffers();
   }, [isReady, accessToken, refreshToken]);
 
+  const handleSearch = () => {
+    if (isReady && (accessToken || refreshToken)) {
+      loadVacancies();
+    }
+  };
+
   const clearAllFilters = () => {
     setFilters({
       mustHave: {},
@@ -110,109 +159,24 @@ export function Home() {
   };
 
   const hasActiveFilters = () => {
-    const { mustHave, niceToHave } = filters;
+    const { mustHave } = filters;
     return (
       !!mustHave.ageMin ||
       !!mustHave.ageMax ||
       !!mustHave.budgetMin ||
       !!mustHave.budgetMax ||
+      !!mustHave.toCity ||
+      !!mustHave.toCountry ||
       !!mustHave.fromCity ||
       !!mustHave.fromCountry ||
-      (mustHave.requiredInterests && mustHave.requiredInterests.length > 0) ||
-      (niceToHave.preferredInterests &&
-        niceToHave.preferredInterests.length > 0) ||
-      !!niceToHave.approximateBudget ||
-      !!niceToHave.flexibleAge
+      (!!mustHave.gender && mustHave.gender.trim() !== "")
     );
   };
 
   const filteredVacancies = useMemo((): VacancyWithMatch[] => {
-    let list: VacancyWithMatch[] = vacancies.map((v) => ({ ...v }));
-
-    // PRIMARY FILTER: Search City (Destination)
-    if (searchCity.trim()) {
-      list = list.filter((vacancy) => {
-        const vacancyCity = vacancy.destination_city?.toLowerCase();
-        return vacancyCity && vacancyCity.includes(searchCity.toLowerCase());
-      });
-    }
-
-    const { mustHave } = filters;
-
-    // MUST HAVE FILTERS - Hard requirements (exclude if not met)
-    list = list.filter((vacancy) => {
-      // Age filter
-      if (mustHave.ageMin !== undefined || mustHave.ageMax !== undefined) {
-        const vacancyAgeMin = vacancy.min_age;
-        const vacancyAgeMax = vacancy.max_age;
-
-        if (
-          mustHave.ageMin !== undefined &&
-          vacancyAgeMax !== undefined &&
-          vacancyAgeMax !== null
-        ) {
-          if (vacancyAgeMax < mustHave.ageMin) return false;
-        }
-        if (
-          mustHave.ageMax !== undefined &&
-          vacancyAgeMin !== undefined &&
-          vacancyAgeMin !== null
-        ) {
-          if (vacancyAgeMin > mustHave.ageMax) return false;
-        }
-      }
-
-      // Budget filter
-      if (
-        mustHave.budgetMin !== undefined ||
-        mustHave.budgetMax !== undefined
-      ) {
-        const vacancyMaxBudget = vacancy.max_budget
-          ? Number(vacancy.max_budget)
-          : null;
-        if (vacancyMaxBudget !== null) {
-          if (
-            mustHave.budgetMin !== undefined &&
-            vacancyMaxBudget < mustHave.budgetMin
-          ) {
-            return false;
-          }
-          if (
-            mustHave.budgetMax !== undefined &&
-            vacancyMaxBudget > mustHave.budgetMax
-          ) {
-            return false;
-          }
-        }
-      }
-
-      // From City filter
-      if (mustHave.fromCity) {
-        const vacancyCity = vacancy.destination_city?.toLowerCase();
-        if (
-          !vacancyCity ||
-          !vacancyCity.includes(mustHave.fromCity.toLowerCase())
-        ) {
-          return false;
-        }
-      }
-
-      // From Country filter
-      if (mustHave.fromCountry) {
-        const vacancyCountry = vacancy.destination_country?.toLowerCase();
-        if (
-          !vacancyCountry ||
-          !vacancyCountry.includes(mustHave.fromCountry.toLowerCase())
-        ) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-
-    return list;
-  }, [vacancies, filters, searchCity]);
+    // All filtering is now done server-side, just return the vacancies
+    return vacancies.map((v) => ({ ...v }));
+  }, [vacancies]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -390,6 +354,7 @@ export function Home() {
             searchCity={searchCity}
             onSearchCityChange={setSearchCity}
             onOpenFilters={() => setIsFilterModalOpen(true)}
+            onSearch={handleSearch}
             hasActiveFilters={hasActiveFilters()}
           />
 
@@ -592,6 +557,7 @@ export function Home() {
         filters={filters}
         onFiltersChange={setFilters}
         onClear={clearAllFilters}
+        onApply={handleSearch}
       />
 
       <ProfileModal

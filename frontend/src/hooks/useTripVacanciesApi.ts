@@ -15,6 +15,13 @@ interface TripVacancyFilters {
   status?: string | null;
   start_date_from?: string | null;
   start_date_to?: string | null;
+  min_age?: number | null;
+  max_age?: number | null;
+  min_budget?: number | null;
+  max_budget?: number | null;
+  gender_preference?: string | null;
+  from_city?: string | null;
+  from_country?: string | null;
 }
 
 export function useTripVacanciesApi() {

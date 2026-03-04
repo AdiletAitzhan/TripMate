@@ -20,14 +20,11 @@ export function ForgotPassword() {
     }
     setLoading(true);
     try {
-      const res = await authApi.forgotPassword(trimmedEmail);
-      if (res.success) {
-        setSent(true);
-      } else {
-        setError(res.error?.message ?? "Something went wrong");
-      }
-    } catch {
-      setError("Something went wrong. Try again.");
+      await authApi.forgotPassword(trimmedEmail);
+      // If we reach here, the request was successful (200 response)
+      setSent(true);
+    } catch (err: any) {
+      setError(err?.message ?? "Something went wrong. Try again.");
     } finally {
       setLoading(false);
     }
