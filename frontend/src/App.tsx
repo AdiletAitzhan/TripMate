@@ -9,6 +9,7 @@ import { ProfileCreation } from "./pages/ProfileCreation";
 import { TripRequestDetail } from "./pages/TripRequestDetail";
 import { Offers } from "./pages/Offers";
 import { MyVacancies } from "./pages/MyVacancies";
+import { Chat } from "./pages/Chat";
 import { Login } from "./pages/Login";
 import { SignUpOptions } from "./pages/SignUpOptions";
 import { ManualRegistration } from "./pages/ManualRegistration";
@@ -70,6 +71,22 @@ function App() {
               element={
                 <PrivateRoute>
                   <TripRequestDetail />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/chat"
+              element={
+                <PrivateRoute>
+                  <Chat />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/chat/:groupId"
+              element={
+                <PrivateRoute>
+                  <Chat />
                 </PrivateRoute>
               }
             />

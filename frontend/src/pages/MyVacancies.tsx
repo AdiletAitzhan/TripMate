@@ -236,6 +236,13 @@ export function MyVacancies() {
             >
               My Offers
             </Link>
+            <Link
+              to="/chat"
+              className={`sidebar-link ${location.pathname === "/chat" ? "active" : ""}`}
+              onClick={closeSidebar}
+            >
+              Messages
+            </Link>
           </nav>
           <div className="spacer" />
           <button

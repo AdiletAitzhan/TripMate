@@ -1,0 +1,142 @@
+.chat-group-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.chat-group-list-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chat-group-list-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.chat-group-count {
+  background: var(--primary);
+  color: var(--bg-elevated);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.chat-group-items {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.chat-group-item {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.chat-group-item:hover {
+  background: var(--bg);
+}
+
+.chat-group-item.active {
+  background: var(--primary);
+  color: var(--bg-elevated);
+}
+
+.chat-group-item.active .chat-group-name,
+.chat-group-item.active .chat-group-date {
+  color: var(--bg-elevated);
+}
+
+.chat-group-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-group-name {
+  margin: 0 0 0.25rem 0;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-group-date {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.chat-group-arrow {
+  font-size: 1.5rem;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.chat-group-item:hover .chat-group-arrow,
+.chat-group-item.active .chat-group-arrow {
+  opacity: 1;
+}
+
+.chat-group-list-loading,
+.chat-group-list-error,
+.chat-group-list-empty {
+  padding: 2rem 1.5rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.chat-group-list-error {
+  color: #ef4444;
+}
+
+/* Scrollbar Styling */
+.chat-group-items::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-group-items::-webkit-scrollbar-track {
+  background: var(--bg-elevated);
+}
+
+.chat-group-items::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.chat-group-items::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .chat-group-list {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .chat-group-list-header {
+    padding: 1rem;
+  }
+
+  .chat-group-item {
+    padding: 0.75rem 1rem;
+  }
+}
