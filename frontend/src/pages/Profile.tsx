@@ -5,7 +5,9 @@ import { ThemeToggle } from "../components/ThemeToggle";
 import { useAuth } from "../context/useAuth";
 import { useProfilesApi } from "../hooks/useProfilesApi";
 import { useTripVacanciesApi } from "../hooks/useTripVacanciesApi";
+import { useTripPlansApi } from "../hooks/useTripPlansApi";
 import { CreateTripVacancyModal } from "../components/CreateTripVacancyModal";
+import { RecommendedPlacesList } from "../components/RecommendedPlacesList";
 import type {
   ProfileDetailResponse,
   LanguageResponse,
@@ -17,6 +19,8 @@ import type {
   TripVacancyResponse,
   TripVacancyUpdateRequest,
 } from "../types/tripRequest";
+import type { TripPlanResponse } from "../types/tripPlan";
+import { ApiRequestError } from "../api/tripPlansApi";
 
 const COUNTRIES = [
   "Kazakhstan",
@@ -142,6 +146,7 @@ export function Profile() {
 
   const { getMyVacancies, createVacancy, updateVacancy, deleteVacancy } =
     useTripVacanciesApi();
+  const { generatePlan, getTripPlanByTripVacancyId } = useTripPlansApi();
   const [myVacancies, setMyVacancies] = useState<TripVacancyResponse[]>([]);
   const [loadingVacancies, setLoadingVacancies] = useState(false);
   const [vacancyError, setVacancyError] = useState<string | null>(null);
@@ -149,6 +154,43 @@ export function Profile() {
   const [editingVacancy, setEditingVacancy] =
     useState<TripVacancyResponse | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const [tripPlansByVacancyId, setTripPlansByVacancyId] = useState<
+    Map<number, TripPlanResponse>
+  >(new Map());
+  const [recommendationsLoadingByVacancyId, setRecommendationsLoadingByVacancyId] =
+    useState<Map<number, boolean>>(new Map());
+  const [recommendationsErrorByVacancyId, setRecommendationsErrorByVacancyId] =
+    useState<Map<number, string>>(new Map());
+
+  const setRecommendationsLoading = (vacancyId: number, value: boolean) => {
+    setRecommendationsLoadingByVacancyId((prev) => {
+      const next = new Map(prev);
+      next.set(vacancyId, value);
+      return next;
+    });
+  };
+
+  const setRecommendationsError = (
+    vacancyId: number,
+    value: string | null,
+  ) => {
+    setRecommendationsErrorByVacancyId((prev) => {
+      const next = new Map(prev);
+      if (value) next.set(vacancyId, value);
+      else next.delete(vacancyId);
+      return next;
+    });
+  };
+
+  const setTripPlan = (vacancyId: number, plan: TripPlanResponse | null) => {
+    setTripPlansByVacancyId((prev) => {
+      const next = new Map(prev);
+      if (plan) next.set(vacancyId, plan);
+      else next.delete(vacancyId);
+      return next;
+    });
+  };
 
   // Use profile_photo field (relative path from backend) or profile_photo_url (full URL)
   const photoDisplayUrl =
@@ -254,6 +296,117 @@ export function Profile() {
     if (!isReady || (!accessToken && !refreshToken)) return;
     loadMyVacancies();
   }, [isReady, accessToken, refreshToken]);
+
+  // If the list of vacancies changes (create/edit/delete), clear per-vacancy
+  // recommendation cache so we don't render stale recommendations.
+  useEffect(() => {
+    setTripPlansByVacancyId(new Map());
+    setRecommendationsLoadingByVacancyId(new Map());
+    setRecommendationsErrorByVacancyId(new Map());
+  }, [myVacancies.length]);
+
+  // Preload already generated plans so the recommendations appear without
+  // needing to click "Generate".
+  useEffect(() => {
+    if (!isReady || (!accessToken && !refreshToken)) return;
+    if (!user?.id) return;
+    if (!myVacancies.length) return;
+
+    let cancelled = false;
+
+    const loadExistingPlans = async () => {
+      // My Vacancies list only contains vacancies created by the current user,
+      // but keep a guard just in case.
+      for (const v of myVacancies) {
+        if (cancelled) return;
+        if (String(v.requester_id) !== String(user.id)) continue;
+        try {
+          const plan = await getTripPlanByTripVacancyId(v.id);
+          if (cancelled) return;
+          setTripPlan(v.id, plan);
+        } catch (e) {
+          const err = e as ApiRequestError;
+          if (
+            err instanceof ApiRequestError &&
+            (err.status === 400 || err.status === 404)
+          ) {
+            // Not generated yet - ignore.
+            continue;
+          }
+          if (cancelled) return;
+          setRecommendationsError(
+            v.id,
+            err?.message ?? "Failed to load recommendations",
+          );
+        }
+      }
+    };
+
+    loadExistingPlans();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isReady,
+    accessToken,
+    refreshToken,
+    user?.id,
+    myVacancies,
+    getTripPlanByTripVacancyId,
+  ]);
+
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const canGenerateTripPlanForVacancy = (v: TripVacancyResponse) => {
+    if (!user?.id) return false;
+    return String(user.id) === String(v.requester_id);
+  };
+
+  const handleGenerateRecommendationsForVacancy = async (v: TripVacancyResponse) => {
+    const vacancyId = v.id;
+    if (!canGenerateTripPlanForVacancy(v)) return;
+    if (recommendationsLoadingByVacancyId.get(vacancyId)) return;
+
+    setRecommendationsLoading(vacancyId, true);
+    setRecommendationsError(vacancyId, null);
+
+    try {
+      await generatePlan(vacancyId);
+
+      // Poll until backend returns trip plan with recommended places.
+      const maxAttempts = 18; // ~36s total
+      const delayMs = 2000;
+      let lastError: unknown = null;
+
+      for (let i = 0; i < maxAttempts; i++) {
+        try {
+          const plan = await getTripPlanByTripVacancyId(vacancyId);
+          setTripPlan(vacancyId, plan);
+          return;
+        } catch (e) {
+          lastError = e;
+          const err = e as ApiRequestError;
+          if (err instanceof ApiRequestError && err.status === 401) throw e;
+          if (i < maxAttempts - 1) await sleep(delayMs);
+        }
+      }
+
+      const err = lastError as ApiRequestError | undefined;
+      setTripPlan(vacancyId, null);
+      setRecommendationsError(
+        err?.message ?? "Recommendations were not ready in time.",
+      );
+    } catch (e) {
+      const err = e as ApiRequestError;
+      setTripPlan(vacancyId, null);
+      setRecommendationsError(
+        err?.message ?? "Failed to generate recommendations",
+      );
+    } finally {
+      setRecommendationsLoading(vacancyId, false);
+    }
+  };
 
   const handleCreateVacancy = async (body: TripVacancyCreateRequest) => {
     await createVacancy(body);
@@ -1318,6 +1471,103 @@ export function Profile() {
                     >
                       Budget: {formatVacancyBudget(v)}
                     </p>
+                    {/* Separate recommendations section (right after Budget) */}
+                    <div style={{ marginTop: 12 }}>
+                      <div
+                        style={{
+                          fontSize: "0.8125rem",
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          color: "var(--text-muted)",
+                          marginBottom: 8,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <span>✨</span>
+                        <span>Recommendations</span>
+                      </div>
+
+                      {tripPlansByVacancyId.get(v.id) && (
+                        <div>
+                          <RecommendedPlacesList
+                            places={
+                              tripPlansByVacancyId.get(v.id)
+                                ?.recommended_places || []
+                            }
+                          />
+                        </div>
+                      )}
+
+                      {!tripPlansByVacancyId.get(v.id) && (
+                        <>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <button
+                              type="button"
+                              className="btn btn-primary"
+                              style={{
+                                flex: 1,
+                                padding: "8px 16px",
+                                opacity: canGenerateTripPlanForVacancy(v)
+                                  ? 1
+                                  : 0.6,
+                              }}
+                              disabled={
+                                !canGenerateTripPlanForVacancy(v) ||
+                                recommendationsLoadingByVacancyId.get(v.id) ===
+                                  true
+                              }
+                              onClick={() =>
+                                handleGenerateRecommendationsForVacancy(v)
+                              }
+                            >
+                              {recommendationsLoadingByVacancyId.get(v.id)
+                                ? "Generating…"
+                                : "Generate recommendations"}
+                            </button>
+                          </div>
+
+                          {recommendationsErrorByVacancyId.get(v.id) && (
+                            <div
+                              style={{
+                                marginTop: 12,
+                                padding: 12,
+                                background: "var(--status-error-bg)",
+                                border: "1px solid var(--status-error-border)",
+                                borderRadius: 8,
+                              }}
+                              role="alert"
+                            >
+                              <p
+                                style={{
+                                  margin: 0,
+                                  color: "var(--status-error)",
+                                }}
+                              >
+                                {recommendationsErrorByVacancyId.get(v.id)}
+                              </p>
+                            </div>
+                          )}
+
+                          {recommendationsErrorByVacancyId.get(v.id) == null &&
+                            recommendationsLoadingByVacancyId.get(v.id) !==
+                              true && (
+                              <p
+                                style={{
+                                  marginTop: 12,
+                                  color: "var(--text-muted)",
+                                  fontSize: "0.875rem",
+                                }}
+                              >
+                                No recommendations yet.
+                              </p>
+                            )}
+                        </>
+                      )}
+                    </div>
+
                     <p
                       style={{
                         fontSize: "0.875rem",
@@ -1343,6 +1593,7 @@ export function Profile() {
                         {v.status}
                       </span>
                     )}
+
                     <div
                       style={{
                         display: "flex",

@@ -6,11 +6,15 @@ import { ProfileModal } from "../components/ProfileModal";
 import { JoinTripModal } from "../components/JoinTripModal";
 import { useAuth } from "../context/useAuth";
 import { useTripVacanciesApi } from "../hooks/useTripVacanciesApi";
+import { useTripPlansApi } from "../hooks/useTripPlansApi";
 import { profilesApi } from "../api/profilesApi";
 import { offersApi } from "../api/offersApi";
+import { ApiRequestError } from "../api/tripPlansApi";
 import type { TripVacancyResponse } from "../types/tripRequest";
 import type { ProfileDetailResponse } from "../types/profile";
 import type { OfferCreateRequest, OfferResponse } from "../types/offer";
+import type { TripPlanResponse } from "../types/tripPlan";
+import { RecommendedPlacesList } from "../components/RecommendedPlacesList";
 
 function formatDate(s: string | undefined): string {
   if (!s) return "—";
@@ -70,6 +74,7 @@ export function TripRequestDetail() {
   const location = useLocation();
   const { clearAuth, isReady, accessToken, refreshToken, user } = useAuth();
   const { getVacancyById } = useTripVacanciesApi();
+  const { generatePlan, getTripPlanByTripVacancyId } = useTripPlansApi();
 
   const [vacancy, setVacancy] = useState<TripVacancyResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -90,6 +95,14 @@ export function TripRequestDetail() {
 
   // Track existing offer
   const [existingOffer, setExistingOffer] = useState<OfferResponse | null>(
+    null,
+  );
+
+  // Trip recommendations state
+  const [tripPlan, setTripPlan] = useState<TripPlanResponse | null>(null);
+  const [hasCheckedTripPlan, setHasCheckedTripPlan] = useState(false);
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  const [recommendationsError, setRecommendationsError] = useState<string | null>(
     null,
   );
 
@@ -122,6 +135,46 @@ export function TripRequestDetail() {
         console.error("Failed to load offers:", e);
       });
   }, [id, isReady, accessToken, refreshToken]);
+
+  // Reset recommendations state when vacancy changes
+  useEffect(() => {
+    if (!vacancy) return;
+    setTripPlan(null);
+    setHasCheckedTripPlan(false);
+    setRecommendationsError(null);
+  }, [vacancy?.id]);
+
+  const canGenerateTripPlan =
+    !!vacancy &&
+    !!user?.id &&
+    (user.id === String(vacancy.requester_id) ||
+      existingOffer?.status === "accepted");
+
+  // Load already generated recommendations (if any)
+  useEffect(() => {
+    if (!vacancy || !canGenerateTripPlan || !user?.id) return;
+    if (hasCheckedTripPlan) return;
+    if (isGeneratingPlan) return;
+
+    getTripPlanByTripVacancyId(vacancy.id)
+      .then((plan) => setTripPlan(plan))
+      .catch((e) => {
+        // If the plan isn't generated yet, backend may respond with 404/400.
+        if (e instanceof ApiRequestError && (e.status === 404 || e.status === 400)) {
+          setTripPlan(null);
+          return;
+        }
+        setRecommendationsError((e as Error)?.message ?? "Failed to load recommendations");
+      })
+      .finally(() => setHasCheckedTripPlan(true));
+  }, [
+    vacancy?.id,
+    canGenerateTripPlan,
+    user?.id,
+    hasCheckedTripPlan,
+    isGeneratingPlan,
+    getTripPlanByTripVacancyId,
+  ]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -189,6 +242,60 @@ export function TripRequestDetail() {
     setTimeout(() => {
       setOfferSuccess(false);
     }, 5000);
+  };
+
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const handleGenerateRecommendations = async () => {
+    if (!vacancy) return;
+    if (!canGenerateTripPlan) return;
+    if (isGeneratingPlan) return;
+
+    setIsGeneratingPlan(true);
+    setRecommendationsError(null);
+    setTripPlan(null);
+    setHasCheckedTripPlan(false);
+
+    try {
+      await generatePlan(vacancy.id);
+
+      // The AI generation can take a long time. After the POST returns,
+      // poll GET /trip-plans/{id} for recommended places.
+      const maxAttempts = 18; // ~36s total
+      const delayMs = 2000;
+      let lastError: unknown = null;
+      let fetched = false;
+
+      for (let i = 0; i < maxAttempts; i++) {
+        try {
+          const plan = await getTripPlanByTripVacancyId(vacancy.id);
+          setTripPlan(plan);
+          setHasCheckedTripPlan(true);
+          fetched = true;
+          break;
+        } catch (e) {
+          lastError = e;
+          const err = e as ApiRequestError;
+          // If unauthorized, stop immediately.
+          if (err instanceof ApiRequestError && err.status === 401) {
+            throw e;
+          }
+          if (i < maxAttempts - 1) await sleep(delayMs);
+        }
+      }
+
+      if (!fetched) {
+        const err = lastError as ApiRequestError | undefined;
+        setRecommendationsError(
+          err?.message ?? "Recommendations were not ready in time.",
+        );
+      }
+    } catch (e) {
+      const err = e as ApiRequestError;
+      setRecommendationsError(err?.message ?? "Failed to generate recommendations");
+    } finally {
+      setIsGeneratingPlan(false);
+    }
   };
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
@@ -835,6 +942,124 @@ export function TripRequestDetail() {
                   </div>
                 </div>
               )}
+
+            {/* Recommendations Card */}
+            <div
+              style={{
+                background: "var(--card-bg)",
+                border: "1px solid var(--border)",
+                borderRadius: 16,
+                padding: "24px 32px",
+                marginBottom: 24,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  gap: 16,
+                  flexWrap: "wrap",
+                  marginBottom: 8,
+                }}
+              >
+                <div>
+                  <h2
+                    style={{
+                      fontSize: "1.125rem",
+                      fontWeight: 700,
+                      color: "var(--text)",
+                      margin: 0,
+                      letterSpacing: "-0.01em",
+                    }}
+                  >
+                    Recommendations
+                  </h2>
+                  {!tripPlan ? (
+                    <p style={{ margin: "8px 0 0", color: "var(--text-muted)" }}>
+                      Generate places tailored to your trip.
+                    </p>
+                  ) : (
+                    <p style={{ margin: "8px 0 0", color: "var(--text-muted)" }}>
+                      Recommendations were generated for this trip.
+                    </p>
+                  )}
+                </div>
+
+                {!tripPlan && (
+                  <button
+                    type="button"
+                    onClick={handleGenerateRecommendations}
+                    disabled={!canGenerateTripPlan || isGeneratingPlan}
+                    className="btn btn-primary"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "12px 24px",
+                      whiteSpace: "nowrap",
+                      opacity: !canGenerateTripPlan ? 0.6 : 1,
+                    }}
+                  >
+                    {isGeneratingPlan
+                      ? "Generating..."
+                      : "Generate recommendations"}
+                  </button>
+                )}
+              </div>
+
+              {!tripPlan && !canGenerateTripPlan && (
+                <p style={{ margin: "12px 0 0", color: "var(--text-muted)" }}>
+                  Only the trip requester or accepted participants can generate
+                  recommendations.
+                </p>
+              )}
+
+              {recommendationsError && (
+                <div
+                  className="card-premium"
+                  style={{
+                    marginTop: 16,
+                    padding: 16,
+                    background: "var(--status-error-bg)",
+                    border: "1px solid var(--status-error-border)",
+                  }}
+                  role="alert"
+                >
+                  <p style={{ color: "var(--status-error)", margin: 0 }}>
+                    {recommendationsError}
+                  </p>
+                </div>
+              )}
+
+              {isGeneratingPlan && (
+                <p style={{ marginTop: 16, color: "var(--text-muted)" }}>
+                  AI is generating a travel plan. This may take a while…
+                </p>
+              )}
+
+              {!tripPlan && hasCheckedTripPlan && !isGeneratingPlan && !recommendationsError && (
+                <p style={{ marginTop: 16, color: "var(--text-muted)" }}>
+                  No recommendations yet. Press the button to generate them.
+                </p>
+              )}
+
+              {tripPlan && (
+                <>
+                  <div style={{ marginTop: 16 }}>
+                    <p style={{ margin: 0, color: "var(--text-muted)" }}>
+                      Updated at{" "}
+                      {tripPlan.generated_at
+                        ? new Date(tripPlan.generated_at).toLocaleString()
+                        : new Date(tripPlan.updated_at).toLocaleString()}
+                    </p>
+                  </div>
+                  <RecommendedPlacesList
+                    places={tripPlan.recommended_places || []}
+                  />
+                </>
+              )}
+            </div>
 
               {/* Created Date - Small Footer */}
               {vacancy.created_at && (
