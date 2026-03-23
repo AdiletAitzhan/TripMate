@@ -9,6 +9,7 @@ import { ProfileCreation } from "./pages/ProfileCreation";
 import { TripRequestDetail } from "./pages/TripRequestDetail";
 import { Offers } from "./pages/Offers";
 import { MyVacancies } from "./pages/MyVacancies";
+import { Recommendations } from "./pages/Recommendations";
 import { Chat } from "./pages/Chat";
 import { Login } from "./pages/Login";
 import { SignUpOptions } from "./pages/SignUpOptions";
@@ -55,6 +56,14 @@ function App() {
               element={
                 <PrivateRoute>
                   <MyVacancies />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/recommendations"
+              element={
+                <PrivateRoute>
+                  <Recommendations />
                 </PrivateRoute>
               }
             />

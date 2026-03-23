@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type {
   TripRequestResponse,
   TripVacancyResponse,
@@ -77,6 +78,7 @@ export function TripCard({
   featured = false,
   trending = false,
 }: TripCardProps) {
+  const [imgError, setImgError] = useState(false);
   // Use tripVacancy or tripRequest data if provided, otherwise fall back to legacy props
   const destination =
     tripVacancy?.destination_city ||
@@ -153,34 +155,50 @@ export function TripCard({
         </div>
       )}
       <div className="trip-image-wrapper">
-        <div
-          className="trip-image"
-          style={{
-            background: backgroundGradient,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "rgba(255, 255, 255, 0.95)",
-            fontSize: "2.5rem",
-            fontWeight: "700",
-            textShadow: "0 4px 12px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.3)",
-            minHeight: "200px",
-            position: "relative",
-          }}
-        >
+        {isLandingPage && !imgError ? (
+          <>
+            <img
+              src={`https://source.unsplash.com/featured/800x500/?${encodeURIComponent(destination + " " + country + " travel")}`}
+              alt={`${destination}, ${country}`}
+              className="trip-image trip-image-photo"
+              onError={() => setImgError(true)}
+            />
+            <div className="trip-image-overlay">
+              <span className="trip-image-label">
+                {destination}{country ? `, ${country}` : ""}
+              </span>
+            </div>
+          </>
+        ) : (
           <div
+            className="trip-image"
             style={{
-              position: "absolute",
-              inset: 0,
-              background: "rgba(0, 0, 0, 0.15)",
-              zIndex: 1,
+              background: backgroundGradient,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "rgba(255, 255, 255, 0.95)",
+              fontSize: "2.5rem",
+              fontWeight: "700",
+              textShadow: "0 4px 12px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.3)",
+              minHeight: "200px",
+              position: "relative",
             }}
-          />
-          <span style={{ position: "relative", zIndex: 2 }}>
-            {destination.charAt(0).toUpperCase()}
-          </span>
-        </div>
-        {!tripRequest && !tripVacancy && (
+          >
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "rgba(0, 0, 0, 0.15)",
+                zIndex: 1,
+              }}
+            />
+            <span style={{ position: "relative", zIndex: 2 }}>
+              {destination.charAt(0).toUpperCase()}
+            </span>
+          </div>
+        )}
+        {!isLandingPage && !tripRequest && !tripVacancy && (
           <div className="trip-overlay">
             <div className="trip-rating">
               <span className="trip-rating-value">{rating}</span>

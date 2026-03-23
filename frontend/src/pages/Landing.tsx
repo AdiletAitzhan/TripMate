@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { TripSearch } from "../components/TripSearch";
 import { TripCard } from "../components/TripCard";
@@ -17,6 +17,16 @@ export function Landing() {
   const [error, setError] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const tripsScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollTrips = (dir: "left" | "right") => {
+    if (tripsScrollRef.current) {
+      tripsScrollRef.current.scrollBy({
+        left: dir === "left" ? -420 : 420,
+        behavior: "smooth",
+      });
+    }
+  };
 
   // Force light mode on landing page
   useEffect(() => {
@@ -175,7 +185,7 @@ export function Landing() {
         aria-hidden="true"
       />
 
-      {/* <header className={`tm-header ${isScrolled ? "scrolled" : ""}`}>
+      <header className={`tm-header ${isScrolled ? "scrolled" : ""}`}>
         <div className="header-inner">
           <Link to="/" className="logo" onClick={closeMenu}>
             TripMate
@@ -225,7 +235,7 @@ export function Landing() {
             </ul>
           </nav>
         </div>
-      </header> */}
+      </header>
 
       <main>
         <section className="hero">
@@ -291,71 +301,71 @@ export function Landing() {
           </div>
         </section>
         <section
-          aria-label="Available trip vacancies"
-          style={{ paddingTop: "80px", paddingBottom: "60px" }}
+          aria-label="Recommended trips"
+          className="recommendations-section"
         >
           <div className="container">
             <div className="trips-section-header">
               <div>
-                <p className="section-label reveal">Explore</p>
-                <h2 className="section-title reveal">
-                  Available trip vacancies
-                </h2>
+                <p className="section-label reveal">Recommendations</p>
+                <h2 className="section-title reveal">Trips you'll love</h2>
                 <p className="section-desc reveal">
                   Browse real trips created by the community and offer to join.
                 </p>
               </div>
+              {!loading && !error && tripVacancies.length > 1 && (
+                <div className="trips-scroll-arrows">
+                  <button
+                    className="trips-scroll-btn"
+                    onClick={() => scrollTrips("left")}
+                    aria-label="Scroll left"
+                  >
+                    ←
+                  </button>
+                  <button
+                    className="trips-scroll-btn"
+                    onClick={() => scrollTrips("right")}
+                    aria-label="Scroll right"
+                  >
+                    →
+                  </button>
+                </div>
+              )}
             </div>
 
             {loading && (
-              <div
-                className="trips-loading"
-                style={{
-                  padding: "40px",
-                  textAlign: "center",
-                  color: "#374151",
-                }}
-              >
-                <p>Loading trips...</p>
+              <div className="trips-loading">
+                <div className="trips-skeleton-row">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="trip-card-skeleton" />
+                  ))}
+                </div>
               </div>
             )}
             {error && (
-              <div
-                className="trips-error"
-                role="alert"
-                style={{
-                  padding: "40px",
-                  textAlign: "center",
-                  color: "#dc2626",
-                }}
-              >
+              <div className="trips-error" role="alert">
                 <p>{error}</p>
               </div>
             )}
             {!loading && !error && tripVacancies.length === 0 && (
-              <div
-                className="trips-empty"
-                style={{
-                  padding: "40px",
-                  textAlign: "center",
-                  color: "#6b7280",
-                }}
-              >
-                <p>
-                  No trip vacancies available at the moment. Check back soon.
-                </p>
+              <div className="trips-empty">
+                <p>No trips available at the moment. Check back soon.</p>
               </div>
             )}
             {!loading && !error && tripVacancies.length > 0 && (
-              <div className="trips-grid">
-                {tripVacancies.map((vacancy) => (
-                  <TripCard
-                    key={vacancy.id}
-                    tripVacancy={vacancy}
-                    onOfferClick={() => navigate("/signup")}
-                    isLandingPage={true}
-                  />
-                ))}
+              <div className="trips-scroll-wrapper">
+                <div className="trips-grid" ref={tripsScrollRef}>
+                  {tripVacancies.map((vacancy) => (
+                    <TripCard
+                      key={vacancy.id}
+                      tripVacancy={vacancy}
+                      onOfferClick={() => navigate("/signup")}
+                      isLandingPage={true}
+                    />
+                  ))}
+                </div>
+                <div className="trips-edge-fade trips-edge-fade-left" />
+                <div className="trips-edge-fade trips-edge-fade-right" />
               </div>
             )}
           </div>

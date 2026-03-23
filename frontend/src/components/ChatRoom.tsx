@@ -35,6 +35,11 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   const [members, setMembers] = useState<
     Array<{ user_id: number; joined_at: string }>
   >([]);
+  const [failedAvatars, setFailedAvatars] = useState<Set<number>>(new Set());
+
+  const handleAvatarError = (userId: number) => {
+    setFailedAvatars((prev) => new Set(prev).add(userId));
+  };
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -259,11 +264,12 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                 >
                   {!isOwn && (
                     <div className="message-avatar">
-                      {senderPhoto ? (
+                      {senderPhoto && !failedAvatars.has(msg.senderId) ? (
                         <img
                           src={senderPhoto}
                           alt={senderName}
                           className="avatar-image"
+                          onError={() => handleAvatarError(msg.senderId)}
                         />
                       ) : (
                         <div className="avatar-placeholder">
@@ -353,11 +359,12 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                   return (
                     <div key={member.user_id} className="member-item">
                       <div className="member-avatar">
-                        {userPhoto ? (
+                        {userPhoto && !failedAvatars.has(member.user_id) ? (
                           <img
                             src={userPhoto}
                             alt={userName}
                             className="avatar-image"
+                            onError={() => handleAvatarError(member.user_id)}
                           />
                         ) : (
                           <div className="avatar-placeholder">

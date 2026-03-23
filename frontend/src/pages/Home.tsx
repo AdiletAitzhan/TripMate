@@ -287,6 +287,13 @@ export function Home() {
               My Vacancies
             </Link>
             <Link
+              to="/recommendations"
+              className={`sidebar-link ${location.pathname === "/recommendations" ? "active" : ""}`}
+              onClick={closeSidebar}
+            >
+              Recommendations
+            </Link>
+            <Link
               to="/offers"
               className={`sidebar-link ${location.pathname === "/offers" ? "active" : ""}`}
               onClick={closeSidebar}
