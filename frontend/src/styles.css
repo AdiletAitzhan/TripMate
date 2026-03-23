@@ -2907,18 +2907,27 @@ section[aria-label="Trip requests"] {
     justify-content: center;
   }
 
-  /* Smaller rec cards on mobile */
+  /* Rec cards switch to 2-column grid on mobile */
+  .rec-places-scroll {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    overflow-x: visible;
+    scroll-snap-type: none;
+    gap: 10px;
+  }
+
   .rec-place-card {
-    min-width: 160px !important;
-    max-width: 160px !important;
+    min-width: unset !important;
+    max-width: unset !important;
+    width: 100%;
   }
 
   .rec-place-img-wrapper {
-    height: 120px !important;
+    height: 110px !important;
   }
 
-  .rec-place-img {
-    height: 120px !important;
+  .trips-scroll-arrows {
+    display: none;
   }
 
   .rec-place-name-overlay {

@@ -275,7 +275,7 @@ export function Recommendations() {
           </div>
         </header>
 
-        <main className="app-content" style={{ padding: 32, maxWidth: 1000, margin: "0 auto" }}>
+        <main className="app-content recs-page-content">
           <div className="recs-page-header">
             <h1 className="recs-page-title">Recommendations</h1>
             <p className="recs-page-subtitle">
