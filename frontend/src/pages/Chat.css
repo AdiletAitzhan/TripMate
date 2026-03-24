@@ -1,72 +1,68 @@
+/* Chat page inside app-content */
+.chat-app-content {
+  padding: 0 !important;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .chat-page {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
   background: var(--bg);
 }
 
-/* Header */
-.chat-page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 2rem;
-  background: var(--bg-elevated);
+/* Title bar inside content area */
+.chat-page-titlebar {
+  padding: 16px 24px;
   border-bottom: 1px solid var(--border);
-  box-shadow: var(--shadow);
-  z-index: 10;
+  background: var(--bg-elevated);
 }
 
-.chat-page-header-left {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-}
-
-.back-button {
-  padding: 0.5rem 1rem;
-  background: transparent;
+.chat-page-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
   color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+/* Back button in header */
+.back-button {
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--text-muted);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 .back-button:hover {
-  background: var(--bg);
+  background: rgba(99, 102, 241, 0.06);
   border-color: var(--primary);
   color: var(--primary);
-}
-
-.chat-page-title {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.chat-page-header-right {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
 }
 
 /* Main Content */
 .chat-page-content {
   display: flex;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
-/* Sidebar */
+/* Chat group list sidebar */
 .chat-page-sidebar {
-  width: 320px;
+  width: 300px;
   flex-shrink: 0;
   border-right: 1px solid var(--border);
   overflow: hidden;
@@ -79,6 +75,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 /* Empty State */
@@ -92,53 +89,48 @@
 
 .chat-page-empty-content {
   text-align: center;
-  max-width: 400px;
+  max-width: 360px;
   padding: 2rem;
 }
 
 .chat-page-empty-content h2 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.5rem;
-  font-weight: 600;
+  margin: 0 0 6px 0;
+  font-size: 1.25rem;
+  font-weight: 700;
   color: var(--text);
+  letter-spacing: -0.02em;
 }
 
 .chat-page-empty-content p {
-  margin: 0 0 2rem 0;
+  margin: 0 0 20px 0;
   color: var(--text-muted);
-  font-size: 1rem;
+  font-size: 0.875rem;
 }
 
 .chat-page-empty-icon {
-  font-size: 4rem;
-  opacity: 0.3;
+  color: var(--text-muted);
   animation: floatIcon 3s ease-in-out infinite;
 }
 
 @keyframes floatIcon {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
 }
 
-/* Responsive Design */
+/* Responsive */
 @media (max-width: 1024px) {
   .chat-page-sidebar {
-    width: 280px;
+    width: 260px;
   }
 }
 
 @media (max-width: 768px) {
-  .chat-page-header {
-    padding: 1rem;
+  .chat-page-titlebar {
+    padding: 12px 16px;
   }
 
   .chat-page-title {
-    font-size: 1.25rem;
+    font-size: 1.125rem;
   }
 
   .chat-page-content {
@@ -161,28 +153,13 @@
   }
 
   .back-button {
-    padding: 0.5rem;
+    padding: 5px 10px;
     font-size: 0.75rem;
   }
 }
 
 @media (max-width: 480px) {
-  .chat-page-header-left {
-    gap: 0.5rem;
-  }
-
   .chat-page-title {
-    font-size: 1rem;
-  }
-
-  .back-button {
-    font-size: 0;
-    width: 2rem;
-    justify-content: center;
-  }
-
-  .back-button::before {
-    content: "←";
     font-size: 1rem;
   }
 }

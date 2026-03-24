@@ -1,7 +1,9 @@
-import { useEffect, useState, useRef } from "react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { AppSidebar } from "../components/AppSidebar";
 import { NotificationButton } from "../components/NotificationButton";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { BottomNav } from "../components/BottomNav";
 import { RecommendedPlacesList } from "../components/RecommendedPlacesList";
 import { useAuth } from "../context/useAuth";
 import { useTripVacanciesApi } from "../hooks/useTripVacanciesApi";
@@ -22,7 +24,6 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export function Recommendations() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { clearAuth, isReady, accessToken, refreshToken, user } = useAuth();
   const { getMyVacancies } = useTripVacanciesApi();
   const { generatePlan, getTripPlanByTripVacancyId } = useTripPlansApi();
@@ -31,7 +32,6 @@ export function Recommendations() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const sidebarRef = useRef<HTMLDivElement>(null);
 
   const [tripPlansByVacancyId, setTripPlansByVacancyId] = useState<
     Map<number, TripPlanResponse>
@@ -145,28 +145,6 @@ export function Recommendations() {
     }
   };
 
-  // Sidebar close on outside click / escape
-  useEffect(() => {
-    const onClickOutside = (e: MouseEvent) => {
-      if (
-        isSidebarOpen &&
-        sidebarRef.current &&
-        !sidebarRef.current.contains(e.target as Node)
-      )
-        setIsSidebarOpen(false);
-    };
-    if (isSidebarOpen) document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
-  }, [isSidebarOpen]);
-
-  useEffect(() => {
-    const onEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsSidebarOpen(false);
-    };
-    if (isSidebarOpen) document.addEventListener("keydown", onEsc);
-    return () => document.removeEventListener("keydown", onEsc);
-  }, [isSidebarOpen]);
-
   const handleLogout = () => {
     clearAuth();
     navigate("/login", { replace: true });
@@ -179,82 +157,12 @@ export function Recommendations() {
     <>
       <div className="grain" aria-hidden="true" />
       <div className="app-layout">
-        <div
-          className={`sidebar-overlay ${isSidebarOpen ? "active" : ""}`}
-          onClick={closeSidebar}
-          aria-hidden="true"
+        <AppSidebar
+          isOpen={isSidebarOpen}
+          onClose={closeSidebar}
+          onToggle={toggleSidebar}
+          onLogout={handleLogout}
         />
-
-        <aside
-          ref={sidebarRef}
-          className={`sidebar ${isSidebarOpen ? "open" : ""}`}
-          role="navigation"
-          aria-label="Main navigation"
-        >
-          <div className="sidebar-header">
-            <span className="sidebar-title">Menu</span>
-            <button
-              type="button"
-              className="menu-button"
-              onClick={toggleSidebar}
-              aria-label="Close menu"
-            >
-              ×
-            </button>
-          </div>
-          <nav>
-            <Link
-              to="/home"
-              className={`sidebar-link ${location.pathname === "/home" ? "active" : ""}`}
-              onClick={closeSidebar}
-            >
-              Home
-            </Link>
-            <Link
-              to="/profile"
-              className={`sidebar-link ${location.pathname === "/profile" ? "active" : ""}`}
-              onClick={closeSidebar}
-            >
-              Profile
-            </Link>
-            <Link
-              to="/my-vacancies"
-              className={`sidebar-link ${location.pathname === "/my-vacancies" ? "active" : ""}`}
-              onClick={closeSidebar}
-            >
-              My Vacancies
-            </Link>
-            <Link
-              to="/recommendations"
-              className={`sidebar-link ${location.pathname === "/recommendations" ? "active" : ""}`}
-              onClick={closeSidebar}
-            >
-              Recommendations
-            </Link>
-            <Link
-              to="/offers"
-              className={`sidebar-link ${location.pathname === "/offers" ? "active" : ""}`}
-              onClick={closeSidebar}
-            >
-              My Offers
-            </Link>
-            <Link
-              to="/chat"
-              className={`sidebar-link ${location.pathname === "/chat" ? "active" : ""}`}
-              onClick={closeSidebar}
-            >
-              Messages
-            </Link>
-          </nav>
-          <div className="spacer" />
-          <button
-            onClick={handleLogout}
-            type="button"
-            className="sidebar-link logout"
-          >
-            Log out
-          </button>
-        </aside>
 
         <header className="app-header">
           <div className="app-header-left">
@@ -392,6 +300,8 @@ export function Recommendations() {
           © 2026 TripMate. Travel together, explore forever.
         </footer>
       </div>
+
+      <BottomNav />
     </>
   );
 }

@@ -1,7 +1,9 @@
-import { useEffect, useState, useRef, useMemo } from "react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useEffect, useState, useMemo } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { NotificationButton } from "../components/NotificationButton";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { BottomNav } from "../components/BottomNav";
+import { AppSidebar } from "../components/AppSidebar";
 import { CitySearchBar } from "../components/CitySearchBar";
 import { FilterModal } from "../components/FilterModal";
 import { ProfileModal } from "../components/ProfileModal";
@@ -15,7 +17,7 @@ import type { ProfileDetailResponse } from "../types/profile";
 import type { OfferResponse } from "../types/offer";
 
 function formatDate(s: string | undefined): string {
-  if (!s) return "—";
+  if (!s) return "\u2014";
   const d = new Date(s);
   return d.toLocaleDateString(undefined, {
     year: "numeric",
@@ -29,16 +31,16 @@ function formatVacancyDestination(vacancy: TripVacancyResponse): string {
     vacancy?.destination_city,
     vacancy?.destination_country,
   ].filter(Boolean);
-  return parts.length ? parts.join(", ") : "—";
+  return parts.length ? parts.join(", ") : "\u2014";
 }
 
 function formatVacancyBudget(vacancy: TripVacancyResponse): string {
   const min = vacancy?.min_budget ? Number(vacancy.min_budget) : null;
   const max = vacancy?.max_budget ? Number(vacancy.max_budget) : null;
-  if (min && max) return `${min} - ${max} KZT`;
-  if (min) return `From ${min} KZT`;
-  if (max) return `Up to ${max} KZT`;
-  return "—";
+  if (min && max) return `${min.toLocaleString()} \u2013 ${max.toLocaleString()} KZT`;
+  if (min) return `From ${min.toLocaleString()} KZT`;
+  if (max) return `Up to ${max.toLocaleString()} KZT`;
+  return "\u2014";
 }
 
 interface VacancyWithMatch extends TripVacancyResponse {
@@ -46,9 +48,34 @@ interface VacancyWithMatch extends TripVacancyResponse {
   matchScore?: number;
 }
 
+// SVG icons for vacancy card meta rows
+const CalendarIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+    <line x1="16" y1="2" x2="16" y2="6" />
+    <line x1="8" y1="2" x2="8" y2="6" />
+    <line x1="3" y1="10" x2="21" y2="10" />
+  </svg>
+);
+
+const WalletIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+    <line x1="1" y1="10" x2="23" y2="10" />
+  </svg>
+);
+
+const UsersIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+
 export function Home() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { clearAuth, isReady, accessToken, refreshToken } = useAuth();
   const { getAllVacancies } = useTripVacanciesApi();
 
@@ -56,7 +83,6 @@ export function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const sidebarRef = useRef<HTMLDivElement>(null);
   const [myOffers, setMyOffers] = useState<OfferResponse[]>([]);
 
   const [searchCity, setSearchCity] = useState("");
@@ -66,7 +92,6 @@ export function Home() {
     niceToHave: {},
   });
 
-  // Profile modal state
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [selectedProfile, setSelectedProfile] =
     useState<ProfileDetailResponse | null>(null);
@@ -77,7 +102,6 @@ export function Home() {
     setLoading(true);
     setError(null);
 
-    // Build API filters from current state
     const apiFilters: {
       destination_city?: string | null;
       destination_country?: string | null;
@@ -93,31 +117,16 @@ export function Home() {
     if (searchCity.trim()) {
       apiFilters.destination_city = searchCity.trim();
     }
-    if (filters.mustHave.ageMin !== undefined) {
-      apiFilters.min_age = filters.mustHave.ageMin;
-    }
-    if (filters.mustHave.ageMax !== undefined) {
-      apiFilters.max_age = filters.mustHave.ageMax;
-    }
-    if (filters.mustHave.budgetMin !== undefined) {
-      apiFilters.min_budget = filters.mustHave.budgetMin;
-    }
-    if (filters.mustHave.budgetMax !== undefined) {
-      apiFilters.max_budget = filters.mustHave.budgetMax;
-    }
-    // Only add gender if it's not empty (not "Any")
+    if (filters.mustHave.ageMin !== undefined) apiFilters.min_age = filters.mustHave.ageMin;
+    if (filters.mustHave.ageMax !== undefined) apiFilters.max_age = filters.mustHave.ageMax;
+    if (filters.mustHave.budgetMin !== undefined) apiFilters.min_budget = filters.mustHave.budgetMin;
+    if (filters.mustHave.budgetMax !== undefined) apiFilters.max_budget = filters.mustHave.budgetMax;
     if (filters.mustHave.gender && filters.mustHave.gender.trim() !== "") {
       apiFilters.gender_preference = filters.mustHave.gender;
     }
-    if (filters.mustHave.fromCity) {
-      apiFilters.from_city = filters.mustHave.fromCity;
-    }
-    if (filters.mustHave.fromCountry) {
-      apiFilters.from_country = filters.mustHave.fromCountry;
-    }
-    if (filters.mustHave.toCountry) {
-      apiFilters.destination_country = filters.mustHave.toCountry;
-    }
+    if (filters.mustHave.fromCity) apiFilters.from_city = filters.mustHave.fromCity;
+    if (filters.mustHave.fromCountry) apiFilters.from_country = filters.mustHave.fromCountry;
+    if (filters.mustHave.toCountry) apiFilters.destination_country = filters.mustHave.toCountry;
 
     getAllVacancies(Object.keys(apiFilters).length > 0 ? apiFilters : undefined)
       .then((data) => {
@@ -152,10 +161,7 @@ export function Home() {
   };
 
   const clearAllFilters = () => {
-    setFilters({
-      mustHave: {},
-      niceToHave: {},
-    });
+    setFilters({ mustHave: {}, niceToHave: {} });
   };
 
   const hasActiveFilters = () => {
@@ -174,32 +180,8 @@ export function Home() {
   };
 
   const filteredVacancies = useMemo((): VacancyWithMatch[] => {
-    // All filtering is now done server-side, just return the vacancies
     return vacancies.map((v) => ({ ...v }));
   }, [vacancies]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        isSidebarOpen &&
-        sidebarRef.current &&
-        !sidebarRef.current.contains(event.target as Node)
-      ) {
-        setIsSidebarOpen(false);
-      }
-    };
-    if (isSidebarOpen)
-      document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isSidebarOpen]);
-
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isSidebarOpen) setIsSidebarOpen(false);
-    };
-    if (isSidebarOpen) document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
-  }, [isSidebarOpen]);
 
   const handleLogout = () => {
     clearAuth();
@@ -210,7 +192,7 @@ export function Home() {
     requesterId: number,
     e: React.MouseEvent,
   ) => {
-    e.preventDefault(); // Prevent navigation to request detail
+    e.preventDefault();
     e.stopPropagation();
 
     setIsProfileModalOpen(true);
@@ -241,82 +223,12 @@ export function Home() {
     <>
       <div className="grain" aria-hidden="true" />
       <div className="app-layout">
-        <div
-          className={`sidebar-overlay ${isSidebarOpen ? "active" : ""}`}
-          onClick={closeSidebar}
-          aria-hidden="true"
+        <AppSidebar
+          isOpen={isSidebarOpen}
+          onClose={closeSidebar}
+          onToggle={toggleSidebar}
+          onLogout={handleLogout}
         />
-
-        <aside
-          ref={sidebarRef}
-          className={`sidebar ${isSidebarOpen ? "open" : ""}`}
-          role="navigation"
-          aria-label="Main navigation"
-        >
-          <div className="sidebar-header">
-            <span className="sidebar-title">Menu</span>
-            <button
-              type="button"
-              className="menu-button"
-              onClick={toggleSidebar}
-              aria-label="Close menu"
-            >
-              ×
-            </button>
-          </div>
-          <nav>
-            <Link
-              to="/home"
-              className={`sidebar-link ${location.pathname === "/home" ? "active" : ""}`}
-              onClick={closeSidebar}
-            >
-              Home
-            </Link>
-            <Link
-              to="/profile"
-              className={`sidebar-link ${location.pathname === "/profile" ? "active" : ""}`}
-              onClick={closeSidebar}
-            >
-              Profile
-            </Link>
-            <Link
-              to="/my-vacancies"
-              className={`sidebar-link ${location.pathname === "/my-vacancies" ? "active" : ""}`}
-              onClick={closeSidebar}
-            >
-              My Vacancies
-            </Link>
-            <Link
-              to="/recommendations"
-              className={`sidebar-link ${location.pathname === "/recommendations" ? "active" : ""}`}
-              onClick={closeSidebar}
-            >
-              Recommendations
-            </Link>
-            <Link
-              to="/offers"
-              className={`sidebar-link ${location.pathname === "/offers" ? "active" : ""}`}
-              onClick={closeSidebar}
-            >
-              My Offers
-            </Link>
-            <Link
-              to="/chat"
-              className={`sidebar-link ${location.pathname === "/chat" ? "active" : ""}`}
-              onClick={closeSidebar}
-            >
-              Messages
-            </Link>
-          </nav>
-          <div className="spacer" />
-          <button
-            onClick={handleLogout}
-            type="button"
-            className="sidebar-link logout"
-          >
-            Log out
-          </button>
-        </aside>
 
         <header className="app-header">
           <div className="app-header-left">
@@ -327,7 +239,11 @@ export function Home() {
               aria-label="Open menu"
               aria-expanded={isSidebarOpen}
             >
-              ☰
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
             </button>
             <span>TripMate</span>
           </div>
@@ -337,31 +253,10 @@ export function Home() {
           </div>
         </header>
 
-        <main
-          className="app-content"
-          style={{ padding: 32, maxWidth: 900, margin: "0 auto" }}
-        >
-          <div style={{ marginBottom: 24, textAlign: "left" }}>
-            <h1
-              style={{
-                fontSize: "2rem",
-                fontWeight: 700,
-                color: "var(--text)",
-                margin: "0 0 4px",
-                letterSpacing: "-0.02em",
-              }}
-            >
-              Trip Vacancies
-            </h1>
-            <p
-              style={{
-                fontSize: "0.9375rem",
-                color: "var(--text-muted)",
-                margin: 0,
-              }}
-            >
-              Browse all available trip vacancies
-            </p>
+        <main className="app-content" style={{ maxWidth: 900, margin: "0 auto" }}>
+          <div className="page-header">
+            <h1 className="page-title">Trip Vacancies</h1>
+            <p className="page-subtitle">Browse all available trip vacancies</p>
           </div>
 
           <CitySearchBar
@@ -373,187 +268,79 @@ export function Home() {
           />
 
           {error && (
-            <p
-              style={{
-                color: "var(--status-error)",
-                marginBottom: 16,
-                fontSize: "0.9375rem",
-                padding: "12px 16px",
-                background: "var(--status-error-bg)",
-                borderRadius: 8,
-                border: "1px solid var(--status-error-border)",
-              }}
-              role="alert"
-            >
-              {error}
-            </p>
+            <div className="error-banner" role="alert">{error}</div>
           )}
 
           {loading ? (
-            <p style={{ color: "var(--text-muted)" }}>Loading…</p>
+            <div className="vacancy-grid">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="trip-card-skeleton"
+                  style={{ minWidth: "unset", height: 200 }}
+                />
+              ))}
+            </div>
           ) : vacancies.length === 0 ? (
-            <div
-              className="card-premium"
-              style={{
-                padding: 48,
-                textAlign: "center",
-              }}
-            >
-              <p style={{ color: "var(--text-muted)" }}>
-                No trip vacancies yet.
-              </p>
+            <div className="empty-state">
+              <p>No trip vacancies yet.</p>
             </div>
           ) : filteredVacancies.length === 0 ? (
-            <div
-              className="card-premium"
-              style={{
-                padding: 48,
-                textAlign: "center",
-              }}
-            >
-              <p style={{ color: "var(--text-muted)", marginBottom: 16 }}>
-                No vacancies match your destination search. Try a different term
-                or clear filters.
-              </p>
+            <div className="empty-state">
+              <p>No vacancies match your search. Try a different term or clear filters.</p>
               <button
                 type="button"
                 className="btn btn-secondary"
                 onClick={clearAllFilters}
-                style={{ width: "auto", padding: "12px 24px" }}
+                style={{ width: "auto", padding: "10px 22px" }}
               >
                 Clear filters
               </button>
             </div>
           ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-                gap: 24,
-              }}
-            >
+            <div className="vacancy-grid">
               {filteredVacancies.map((v) => (
-                <div
-                  key={v.id}
-                  className="card-premium"
-                  style={{
-                    padding: 24,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 12,
-                    position: "relative",
-                  }}
-                >
-                  {/* Profile Button */}
-                  <button
-                    onClick={(e) => handleViewProfile(v.requester_id, e)}
-                    type="button"
-                    style={{
-                      position: "absolute",
-                      top: "16px",
-                      right: "16px",
-                      background: "var(--bg-elevated)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "20px",
-                      padding: "6px 12px",
-                      fontSize: "0.75rem",
-                      fontWeight: 600,
-                      color: "var(--primary)",
-                      cursor: "pointer",
-                      transition: "all 0.2s",
-                      zIndex: 10,
-                    }}
-                    onMouseOver={(e) => {
-                      e.currentTarget.style.background = "var(--primary)";
-                      e.currentTarget.style.color = "white";
-                    }}
-                    onMouseOut={(e) => {
-                      e.currentTarget.style.background = "var(--bg-elevated)";
-                      e.currentTarget.style.color = "var(--primary)";
-                    }}
-                  >
-                    View Profile
-                  </button>
-
-                  <Link
-                    to={`/requests/${v.id}`}
-                    style={{
-                      textDecoration: "none",
-                      color: "inherit",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "12px",
-                      flex: 1,
-                    }}
-                  >
-                    <div style={{ flex: 1, paddingTop: "8px" }}>
-                      <h3
-                        style={{
-                          fontSize: "1.125rem",
-                          fontWeight: 600,
-                          color: "var(--text)",
-                          margin: "0 0 12px",
-                        }}
-                      >
+                <div key={v.id} className="vacancy-card">
+                  <div className="vacancy-card-gradient" />
+                  <div className="vacancy-card-body">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                      <h3 className="vacancy-card-destination">
                         {formatVacancyDestination(v)}
                       </h3>
+                      <button
+                        onClick={(e) => handleViewProfile(v.requester_id, e)}
+                        type="button"
+                        className="vacancy-card-profile-btn"
+                      >
+                        View Profile
+                      </button>
+                    </div>
 
-                      <div style={{ marginBottom: 12 }}>
-                        <p
-                          style={{
-                            fontSize: "0.8125rem",
-                            color: "var(--text-muted)",
-                            margin: "0 0 4px",
-                            fontWeight: 500,
-                          }}
-                        >
-                          <strong style={{ color: "var(--text)" }}>
-                            Dates:
-                          </strong>{" "}
-                          {formatDate(v.start_date)} — {formatDate(v.end_date)}
-                        </p>
-                        <p
-                          style={{
-                            fontSize: "0.8125rem",
-                            color: "var(--text-muted)",
-                            margin: "0 0 4px",
-                            fontWeight: 500,
-                          }}
-                        >
-                          <strong style={{ color: "var(--text)" }}>
-                            Budget:
-                          </strong>{" "}
-                          {formatVacancyBudget(v)}
-                        </p>
-                        <p
-                          style={{
-                            fontSize: "0.8125rem",
-                            color: "var(--text-muted)",
-                            margin: 0,
-                            fontWeight: 500,
-                          }}
-                        >
-                          <strong style={{ color: "var(--text)" }}>
-                            People needed:
-                          </strong>{" "}
-                          {v.people_needed}
-                        </p>
+                    <Link to={`/requests/${v.id}`} className="vacancy-card-link">
+                      <div className="vacancy-card-meta">
+                        <div className="vacancy-card-meta-row">
+                          {CalendarIcon}
+                          <span>
+                            {formatDate(v.start_date)} &mdash; {formatDate(v.end_date)}
+                          </span>
+                        </div>
+                        <div className="vacancy-card-meta-row">
+                          {WalletIcon}
+                          <span>{formatVacancyBudget(v)}</span>
+                        </div>
+                        <div className="vacancy-card-meta-row">
+                          {UsersIcon}
+                          <span>
+                            <strong>{v.people_needed}</strong> {v.people_needed === 1 ? "person" : "people"} needed
+                          </span>
+                        </div>
                       </div>
 
                       {v.description && (
-                        <p
-                          style={{
-                            fontSize: "0.875rem",
-                            color: "var(--text-muted)",
-                            margin: 0,
-                            lineHeight: 1.5,
-                          }}
-                        >
-                          {v.description}
-                        </p>
+                        <p className="vacancy-card-description">{v.description}</p>
                       )}
-                    </div>
-                  </Link>
+                    </Link>
+                  </div>
                 </div>
               ))}
             </div>
@@ -561,9 +348,11 @@ export function Home() {
         </main>
 
         <footer className="app-footer">
-          © 2026 TripMate. Travel together, explore forever.
+          &copy; 2026 TripMate. Travel together, explore forever.
         </footer>
       </div>
+
+      <BottomNav />
 
       <FilterModal
         isOpen={isFilterModalOpen}
