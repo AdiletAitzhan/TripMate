@@ -1,0 +1,11 @@
+services:
+  frontend:
+    build: .
+    container_name: tripmate_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app # Sync local files for hot-reloading
+      - /app/node_modules # Don't overwrite container's node_modules
+    # Connect to the same network as the backend to communicate
+    # network_mode: "host" (on Linux) or use host.docker.internal in vite proxy on Mac
