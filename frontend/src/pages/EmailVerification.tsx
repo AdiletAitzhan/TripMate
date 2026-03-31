@@ -114,11 +114,11 @@ export function EmailVerification() {
           <div className="auth-card">
             <h1 className="auth-heading">Verify your email</h1>
             <p className="auth-sub">
-              No user information was provided. Start registration to receive a
-              code.
+              No user information was provided. Enter your email to receive a
+              verification code.
             </p>
             <p className="link-row" style={{ marginTop: 24 }}>
-              <Link to="/signup/email">Sign up with email</Link>
+              <Link to="/request-verification">Request verification code</Link>
             </p>
           </div>
         </div>

@@ -9,7 +9,7 @@ import { useAuth } from "../context/useAuth";
 import { useTripVacanciesApi } from "../hooks/useTripVacanciesApi";
 import { useTripPlansApi } from "../hooks/useTripPlansApi";
 import { ApiRequestError } from "../api/tripPlansApi";
-import type { TripVacancyResponse } from "../types/tripRequest";
+import { type TripVacancyResponse, destinationName } from "../types/tripRequest";
 import type { TripPlanResponse } from "../types/tripPlan";
 
 function formatDate(s: string): string {
@@ -246,7 +246,7 @@ export function Recommendations() {
                     <div className="recs-vacancy-header">
                       <div>
                         <h2 className="recs-vacancy-title">
-                          {vacancy.destination_city}, {vacancy.destination_country}
+                          {destinationName(vacancy.destination_city)}, {destinationName(vacancy.destination_country)}
                         </h2>
                         <p className="recs-vacancy-dates">
                           {formatDate(vacancy.start_date)} — {formatDate(vacancy.end_date)}

@@ -8,6 +8,8 @@ import type {
   LanguageResponse,
   InterestResponse,
   TravelStyleResponse,
+  CountryResponse,
+  CityResponse,
 } from "../types/profile";
 import type { MessageResponse } from "../types/auth";
 
@@ -135,6 +137,17 @@ export function useProfilesApi() {
     return profilesApi.getAllTravelStyles();
   }, []);
 
+  const getCountries = useCallback(async (): Promise<CountryResponse[]> => {
+    return profilesApi.getCountries();
+  }, []);
+
+  const getCities = useCallback(
+    async (countryId: number): Promise<CityResponse[]> => {
+      return profilesApi.getCities(countryId);
+    },
+    [],
+  );
+
   return {
     // Profile
     createProfile,
@@ -160,5 +173,7 @@ export function useProfilesApi() {
     getAllLanguages,
     getAllInterests,
     getAllTravelStyles,
+    getCountries,
+    getCities,
   };
 }

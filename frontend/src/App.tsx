@@ -17,6 +17,7 @@ import { ManualRegistration } from "./pages/ManualRegistration";
 import { EmailVerification } from "./pages/EmailVerification";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
+import { RequestVerification } from "./pages/RequestVerification";
 
 function App() {
   return (
@@ -104,6 +105,10 @@ function App() {
             <Route path="/signup" element={<SignUpOptions />} />
             <Route path="/signup/email" element={<ManualRegistration />} />
             <Route path="/verify-email" element={<EmailVerification />} />
+            <Route
+              path="/request-verification"
+              element={<RequestVerification />}
+            />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
           </Routes>

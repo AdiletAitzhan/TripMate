@@ -8,7 +8,7 @@ import { useAuth } from "../context/useAuth";
 import { offersApi } from "../api/offersApi";
 import { useTripVacanciesApi } from "../hooks/useTripVacanciesApi";
 import type { OfferResponse } from "../types/offer";
-import type { TripVacancyResponse } from "../types/tripRequest";
+import { type TripVacancyResponse, destinationName } from "../types/tripRequest";
 
 function formatDate(s: string): string {
   const d = new Date(s);
@@ -253,7 +253,7 @@ export function Offers() {
                           }}
                         >
                           {vacancy
-                            ? `${vacancy.destination_city}, ${vacancy.destination_country}`
+                            ? `${destinationName(vacancy.destination_city)}, ${destinationName(vacancy.destination_country)}`
                             : "Trip Vacancy"}
                         </h3>
                         {vacancy && (

@@ -6,6 +6,8 @@ import type {
   LanguageResponse,
   InterestResponse,
   TravelStyleResponse,
+  CountryResponse,
+  CityResponse,
 } from "../types/profile";
 import type {
   MessageResponse,
@@ -251,5 +253,27 @@ export const profilesApi = {
       },
     );
     return handleResponse<TravelStyleResponse[]>(response);
+  },
+
+  async getCountries(): Promise<CountryResponse[]> {
+    const response = await fetch(
+      `${BASE}/api/v1/profiles/options/countries`,
+      {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      },
+    );
+    return handleResponse<CountryResponse[]>(response);
+  },
+
+  async getCities(countryId: number): Promise<CityResponse[]> {
+    const response = await fetch(
+      `${BASE}/api/v1/profiles/options/countries/${countryId}/cities`,
+      {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      },
+    );
+    return handleResponse<CityResponse[]>(response);
   },
 };

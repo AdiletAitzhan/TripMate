@@ -6,6 +6,8 @@ import type {
   LanguageResponse,
   InterestResponse,
   TravelStyleResponse,
+  CountryResponse,
+  CityResponse,
 } from "../types/profile";
 
 export function ProfileCreation() {
@@ -19,6 +21,8 @@ export function ProfileCreation() {
     getAllLanguages,
     getAllInterests,
     getAllTravelStyles,
+    getCountries,
+    getCities,
     uploadProfilePhoto,
   } = useProfilesApi();
 
@@ -32,6 +36,10 @@ export function ProfileCreation() {
   const [availableTravelStyles, setAvailableTravelStyles] = useState<
     TravelStyleResponse[]
   >([]);
+  const [availableCountries, setAvailableCountries] = useState<
+    CountryResponse[]
+  >([]);
+  const [availableCities, setAvailableCities] = useState<CityResponse[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,8 +52,9 @@ export function ProfileCreation() {
   const [gender, setGender] = useState("");
 
   // Optional fields
-  const [country, setCountry] = useState("");
-  const [city, setCity] = useState("");
+  const [selectedCountryId, setSelectedCountryId] = useState<number | "">("");
+  const [selectedCityId, setSelectedCityId] = useState<number | "">("");
+  const [citiesLoading, setCitiesLoading] = useState(false);
   const [bio, setBio] = useState("");
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -68,14 +77,17 @@ export function ProfileCreation() {
   useEffect(() => {
     const loadOptions = async () => {
       try {
-        const [languages, interests, travelStyles] = await Promise.all([
-          getAllLanguages(),
-          getAllInterests(),
-          getAllTravelStyles(),
-        ]);
+        const [languages, interests, travelStyles, countries] =
+          await Promise.all([
+            getAllLanguages(),
+            getAllInterests(),
+            getAllTravelStyles(),
+            getCountries(),
+          ]);
         setAvailableLanguages(languages);
         setAvailableInterests(interests);
         setAvailableTravelStyles(travelStyles);
+        setAvailableCountries(countries);
       } catch (e) {
         console.error("Failed to load options:", e);
         setError("Failed to load profile options. Please refresh the page.");
@@ -84,7 +96,31 @@ export function ProfileCreation() {
       }
     };
     loadOptions();
-  }, [getAllLanguages, getAllInterests, getAllTravelStyles]);
+  }, [getAllLanguages, getAllInterests, getAllTravelStyles, getCountries]);
+
+  // Load cities when country changes
+  useEffect(() => {
+    if (!selectedCountryId) {
+      setAvailableCities([]);
+      setSelectedCityId("");
+      return;
+    }
+    let cancelled = false;
+    setCitiesLoading(true);
+    getCities(selectedCountryId).then((cities) => {
+      if (!cancelled) {
+        setAvailableCities(cities);
+        setSelectedCityId("");
+        setCitiesLoading(false);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setAvailableCities([]);
+        setCitiesLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [selectedCountryId, getCities]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -123,13 +159,19 @@ export function ProfileCreation() {
 
     try {
       // Create the profile
+      const selectedCountry = availableCountries.find(
+        (c) => c.id === selectedCountryId,
+      );
+      const selectedCity = availableCities.find(
+        (c) => c.id === selectedCityId,
+      );
       await createProfile({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         date_of_birth: dateOfBirth,
         gender: gender,
-        country: country || null,
-        city: city || null,
+        country: selectedCountry?.name || null,
+        city: selectedCity?.name || null,
         bio: bio || null,
       });
 
@@ -311,7 +353,6 @@ export function ProfileCreation() {
                     <option value="">Select gender</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
-                    <option value="other">Other</option>
                   </select>
                 </div>
               </div>
@@ -326,23 +367,48 @@ export function ProfileCreation() {
               >
                 <div className="input-wrap">
                   <label>Country (optional)</label>
-                  <input
-                    type="text"
+                  <select
                     className="input-field"
-                    value={country}
-                    onChange={(e) => setCountry(e.target.value)}
-                    placeholder="e.g., Kazakhstan"
-                  />
+                    value={selectedCountryId}
+                    onChange={(e) =>
+                      setSelectedCountryId(
+                        e.target.value ? Number(e.target.value) : "",
+                      )
+                    }
+                  >
+                    <option value="">Select country</option>
+                    {availableCountries.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="input-wrap">
                   <label>City (optional)</label>
-                  <input
-                    type="text"
+                  <select
                     className="input-field"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    placeholder="e.g., Almaty"
-                  />
+                    value={selectedCityId}
+                    onChange={(e) =>
+                      setSelectedCityId(
+                        e.target.value ? Number(e.target.value) : "",
+                      )
+                    }
+                    disabled={!selectedCountryId || citiesLoading}
+                  >
+                    <option value="">
+                      {citiesLoading
+                        ? "Loading cities..."
+                        : !selectedCountryId
+                          ? "Select a country first"
+                          : "Select city"}
+                    </option>
+                    {availableCities.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

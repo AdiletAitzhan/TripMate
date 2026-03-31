@@ -133,6 +133,12 @@ export function Login() {
                 Sign up
               </Link>
             </p>
+            <p className="auth-footer">
+              Need to verify your email?{" "}
+              <Link to="/request-verification" className="auth-footer-link">
+                Resend code
+              </Link>
+            </p>
           </div>
         </div>
       </div>

@@ -67,9 +67,13 @@ async function request<T>(path: string, body: object): Promise<T> {
   });
   if (!res.ok) {
     const error = await res.json().catch(() => ({ message: "Request failed" }));
-    throw new Error(
-      error.message || error.detail?.[0]?.msg || "Request failed",
-    );
+    const msg =
+      error.message ||
+      (typeof error.detail === "string"
+        ? error.detail
+        : error.detail?.[0]?.msg) ||
+      "Request failed";
+    throw new Error(msg);
   }
   return res.json();
 }
@@ -150,6 +154,7 @@ export const authApi = {
     const body: ResendVerificationRequest = { user_id: userId };
     return request<MessageResponse>("/api/v1/auth/resend-verification", body);
   },
+
 
   async forgotPassword(email: string): Promise<MessageResponse> {
     if (USE_MOCK) {

@@ -12,7 +12,7 @@ import { useAuth } from "../context/useAuth";
 import { useTripVacanciesApi } from "../hooks/useTripVacanciesApi";
 import { profilesApi } from "../api/profilesApi";
 import { offersApi } from "../api/offersApi";
-import type { TripVacancyResponse } from "../types/tripRequest";
+import { type TripVacancyResponse, destinationName } from "../types/tripRequest";
 import type { ProfileDetailResponse } from "../types/profile";
 import type { OfferResponse } from "../types/offer";
 
@@ -28,8 +28,8 @@ function formatDate(s: string | undefined): string {
 
 function formatVacancyDestination(vacancy: TripVacancyResponse): string {
   const parts = [
-    vacancy?.destination_city,
-    vacancy?.destination_country,
+    destinationName(vacancy?.destination_city),
+    destinationName(vacancy?.destination_country),
   ].filter(Boolean);
   return parts.length ? parts.join(", ") : "\u2014";
 }

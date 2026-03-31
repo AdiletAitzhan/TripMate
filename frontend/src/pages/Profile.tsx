@@ -16,10 +16,11 @@ import type {
   InterestResponse,
   TravelStyleResponse,
 } from "../types/profile";
-import type {
-  TripVacancyCreateRequest,
-  TripVacancyResponse,
-  TripVacancyUpdateRequest,
+import {
+  type TripVacancyCreateRequest,
+  type TripVacancyResponse,
+  type TripVacancyUpdateRequest,
+  destinationName,
 } from "../types/tripRequest";
 import type { TripPlanResponse } from "../types/tripPlan";
 import { ApiRequestError } from "../api/tripPlansApi";
@@ -75,8 +76,8 @@ function formatRequestDate(s: string | undefined): string {
 
 function formatVacancyDestination(vacancy: TripVacancyResponse): string {
   const parts = [
-    vacancy?.destination_city,
-    vacancy?.destination_country,
+    destinationName(vacancy?.destination_city),
+    destinationName(vacancy?.destination_country),
   ].filter(Boolean);
   return parts.length ? parts.join(", ") : "—";
 }
@@ -445,8 +446,16 @@ export function Profile() {
         setGender(
           data.gender ?? sessionStorage.getItem(PROFILE_GENDER_KEY) ?? "",
         );
-        setCountry(data.country ?? "");
-        setCity(data.city ?? "");
+        setCountry(
+          typeof data.country === "object"
+            ? (data.country as any)?.name ?? ""
+            : data.country ?? "",
+        );
+        setCity(
+          typeof data.city === "object"
+            ? (data.city as any)?.name ?? ""
+            : data.city ?? "",
+        );
         setBio(data.bio ?? "");
         const tz = sessionStorage.getItem(PROFILE_TIMEZONE_KEY);
         setTimeZone(tz && TIMEZONES.includes(tz) ? tz : "UTC+05:00");
@@ -839,7 +848,6 @@ export function Profile() {
                     <option value="">—</option>
                     <option value="female">Female</option>
                     <option value="male">Male</option>
-                    <option value="other">Other</option>
                   </select>
                 </div>
                 <div className="input-wrap">

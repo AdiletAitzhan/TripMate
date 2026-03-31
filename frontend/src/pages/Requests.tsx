@@ -9,7 +9,7 @@ import { FilterModal } from "../components/FilterModal";
 import type { FilterValues } from "../components/AdvancedFilterSearch";
 import { useAuth } from "../context/useAuth";
 import { useTripVacanciesApi } from "../hooks/useTripVacanciesApi";
-import type { TripVacancyResponse } from "../types/tripRequest";
+import { type TripVacancyResponse, destinationName } from "../types/tripRequest";
 
 function formatDate(s: string | undefined): string {
   if (!s) return "—";
@@ -22,7 +22,7 @@ function formatDate(s: string | undefined): string {
 }
 
 function formatVacancyDestination(v: TripVacancyResponse): string {
-  const parts = [v.destination_city, v.destination_country].filter(Boolean);
+  const parts = [destinationName(v.destination_city), destinationName(v.destination_country)].filter(Boolean);
   return parts.length ? parts.join(", ") : "—";
 }
 
@@ -109,7 +109,7 @@ export function Requests() {
     // PRIMARY FILTER: Search City (Destination)
     if (searchCity.trim()) {
       list = list.filter((vacancy) => {
-        const vacancyCity = vacancy.destination_city?.toLowerCase();
+        const vacancyCity = destinationName(vacancy.destination_city).toLowerCase();
         return vacancyCity && vacancyCity.includes(searchCity.toLowerCase());
       });
     }

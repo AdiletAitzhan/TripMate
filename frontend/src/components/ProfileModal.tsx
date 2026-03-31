@@ -198,7 +198,13 @@ export function ProfileModal({
                     margin: 0,
                   }}
                 >
-                  {profile.city}, {profile.country}
+                  {typeof profile.city === "object"
+                    ? (profile.city as any).name
+                    : profile.city}
+                  ,{" "}
+                  {typeof profile.country === "object"
+                    ? (profile.country as any).name
+                    : profile.country}
                 </p>
               )}
             </div>
@@ -473,19 +479,19 @@ export function ProfileModal({
                         gap: "8px",
                       }}
                     >
-                      <span
-                        style={{
-                          color: "var(--text-muted)",
-                          fontSize: "0.875rem",
-                        }}
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="2" y="2" width="20" height="20" rx="5" stroke="var(--text-muted)" strokeWidth="2"/>
+                        <circle cx="12" cy="12" r="5" stroke="var(--text-muted)" strokeWidth="2"/>
+                        <circle cx="17.5" cy="6.5" r="1.5" fill="var(--text-muted)"/>
+                      </svg>
+                      <a
+                        href={`https://instagram.com/${profile.instagram_handle.replace(/^@/, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "var(--primary)", fontSize: "0.875rem", textDecoration: "none" }}
                       >
-                        Instagram:
-                      </span>
-                      <span
-                        style={{ color: "var(--text)", fontSize: "0.875rem" }}
-                      >
-                        @{profile.instagram_handle}
-                      </span>
+                        @{profile.instagram_handle.replace(/^@/, "")}
+                      </a>
                     </div>
                   )}
                   {profile.telegram_handle && (
@@ -496,19 +502,18 @@ export function ProfileModal({
                         gap: "8px",
                       }}
                     >
-                      <span
-                        style={{
-                          color: "var(--text-muted)",
-                          fontSize: "0.875rem",
-                        }}
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22 2L11 13" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <a
+                        href={`https://t.me/${profile.telegram_handle.replace(/^@/, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "var(--primary)", fontSize: "0.875rem", textDecoration: "none" }}
                       >
-                        Telegram:
-                      </span>
-                      <span
-                        style={{ color: "var(--text)", fontSize: "0.875rem" }}
-                      >
-                        @{profile.telegram_handle}
-                      </span>
+                        @{profile.telegram_handle.replace(/^@/, "")}
+                      </a>
                     </div>
                   )}
                 </div>

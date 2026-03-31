@@ -9,7 +9,7 @@ import { useAuth } from "../context/useAuth";
 import { useTripVacanciesApi } from "../hooks/useTripVacanciesApi";
 import { offersApi } from "../api/offersApi";
 import { profilesApi } from "../api/profilesApi";
-import type { TripVacancyResponse } from "../types/tripRequest";
+import { type TripVacancyResponse, destinationName } from "../types/tripRequest";
 import type { OfferResponse } from "../types/offer";
 import type { ProfileDetailResponse } from "../types/profile";
 
@@ -289,8 +289,8 @@ export function MyVacancies() {
                             margin: "0 0 8px",
                           }}
                         >
-                          {vacancy.destination_city},{" "}
-                          {vacancy.destination_country}
+                          {destinationName(vacancy.destination_city)},{" "}
+                          {destinationName(vacancy.destination_country)}
                         </h3>
                         <p
                           style={{

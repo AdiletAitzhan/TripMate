@@ -1,7 +1,8 @@
 import { useState } from "react";
-import type {
-  TripRequestResponse,
-  TripVacancyResponse,
+import {
+  type TripRequestResponse,
+  type TripVacancyResponse,
+  destinationName,
 } from "../types/tripRequest";
 
 interface TripCardProps {
@@ -80,13 +81,13 @@ export function TripCard({
 }: TripCardProps) {
   const [imgError, setImgError] = useState(false);
   // Use tripVacancy or tripRequest data if provided, otherwise fall back to legacy props
-  const destination =
-    tripVacancy?.destination_city ||
+  const destination: string =
+    (tripVacancy ? destinationName(tripVacancy.destination_city) : "") ||
     tripRequest?.destination.city ||
     legacyDestination ||
     "Unknown";
-  const country =
-    tripVacancy?.destination_country ||
+  const country: string =
+    (tripVacancy ? destinationName(tripVacancy.destination_country) : "") ||
     tripRequest?.destination.country ||
     legacyCountry ||
     "";

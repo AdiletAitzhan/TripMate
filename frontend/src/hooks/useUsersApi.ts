@@ -19,8 +19,14 @@ export function useUsersApi() {
           dateOfBirth: profile.date_of_birth,
           gender: profile.gender,
           location: {
-            city: profile.city || undefined,
-            country: profile.country || undefined,
+            city:
+              (typeof profile.city === "object"
+                ? (profile.city as any)?.name
+                : profile.city) || undefined,
+            country:
+              (typeof profile.country === "object"
+                ? (profile.country as any)?.name
+                : profile.country) || undefined,
           },
           profilePhoto: profile.profile_photo_url || undefined,
           bio: profile.bio || undefined,

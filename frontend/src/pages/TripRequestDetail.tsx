@@ -12,7 +12,7 @@ import { useTripPlansApi } from "../hooks/useTripPlansApi";
 import { profilesApi } from "../api/profilesApi";
 import { offersApi } from "../api/offersApi";
 import { ApiRequestError } from "../api/tripPlansApi";
-import type { TripVacancyResponse } from "../types/tripRequest";
+import { type TripVacancyResponse, destinationName } from "../types/tripRequest";
 import type { ProfileDetailResponse } from "../types/profile";
 import type { OfferCreateRequest, OfferResponse } from "../types/offer";
 import type { TripPlanResponse } from "../types/tripPlan";
@@ -41,7 +41,7 @@ function formatDateTime(s: string | undefined): string {
 }
 
 function formatVacancyDestination(v: TripVacancyResponse): string {
-  const parts = [v.destination_city, v.destination_country].filter(Boolean);
+  const parts = [destinationName(v.destination_city), destinationName(v.destination_country)].filter(Boolean);
   return parts.length ? parts.join(", ") : "—";
 }
 

@@ -1,23 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type {
   TripVacancyCreateRequest,
   TripVacancyUpdateRequest,
   TripVacancyResponse,
 } from "../types/tripRequest";
-
-const COUNTRIES = [
-  "Kazakhstan",
-  "Russia",
-  "USA",
-  "Germany",
-  "France",
-  "UK",
-  "Japan",
-  "China",
-  "Italy",
-  "Spain",
-  "Other",
-];
+import type { CountryResponse, CityResponse } from "../types/profile";
+import { profilesApi } from "../api/profilesApi";
 
 const TRANSPORTATION_OPTIONS = ["Plane", "Train", "Bus", "Car", "Ship", "Any"];
 
@@ -55,12 +43,62 @@ export function CreateTripVacancyModal({
   onUpdate,
   editing,
 }: Props) {
-  const [destinationCity, setDestinationCity] = useState(
-    editing?.destination_city ?? "",
-  );
-  const [destinationCountry, setDestinationCountry] = useState(
-    editing?.destination_country ?? COUNTRIES[0],
-  );
+  const [countries, setCountries] = useState<CountryResponse[]>([]);
+  const [cities, setCities] = useState<CityResponse[]>([]);
+  const [citiesLoading, setCitiesLoading] = useState(false);
+
+  const [selectedCountryId, setSelectedCountryId] = useState<number | "">("");
+  const [selectedCityId, setSelectedCityId] = useState<number | "">("");
+
+
+  // Load countries on mount
+  useEffect(() => {
+    profilesApi.getCountries().then((data) => {
+      setCountries(data);
+      // If editing, set the country ID directly from the object or match by name
+      if (editing?.destination_country) {
+        const dc = editing.destination_country;
+        if (typeof dc === "object") {
+          setSelectedCountryId(dc.id);
+        } else {
+          const match = data.find((c) => c.name === dc);
+          if (match) setSelectedCountryId(match.id);
+        }
+      }
+    }).catch(() => {});
+  }, [editing?.destination_country]);
+
+  // Load cities when country changes
+  useEffect(() => {
+    if (!selectedCountryId) {
+      setCities([]);
+      return;
+    }
+    let cancelled = false;
+    setCitiesLoading(true);
+    profilesApi.getCities(selectedCountryId).then((data) => {
+      if (!cancelled) {
+        setCities(data);
+        // If editing, set the city ID directly from the object or match by name
+        if (editing?.destination_city) {
+          const dc = editing.destination_city;
+          if (typeof dc === "object") {
+            setSelectedCityId(dc.id);
+          } else {
+            const match = data.find((c) => c.name === dc);
+            if (match) setSelectedCityId(match.id);
+          }
+        }
+        setCitiesLoading(false);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setCities([]);
+        setCitiesLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [selectedCountryId, editing?.destination_city]);
   const [startDate, setStartDate] = useState(
     formatDateForInput(editing?.start_date),
   );
@@ -102,8 +140,8 @@ export function CreateTripVacancyModal({
 
     if (editing && onUpdate) {
       const body: TripVacancyUpdateRequest = {
-        destination_city: destinationCity.trim() || null,
-        destination_country: destinationCountry || null,
+        destination_city_id: selectedCityId ? (selectedCityId as number) : null,
+        destination_country_id: selectedCountryId ? (selectedCountryId as number) : null,
         start_date: startDate || null,
         end_date: endDate || null,
         min_budget: minBudget !== "" ? Number(minBudget) : null,
@@ -130,12 +168,12 @@ export function CreateTripVacancyModal({
     }
 
     // Validate required fields
-    if (!destinationCity.trim()) {
+    if (!selectedCityId) {
       setError("Destination city is required");
       setSubmitting(false);
       return;
     }
-    if (!destinationCountry) {
+    if (!selectedCountryId) {
       setError("Destination country is required");
       setSubmitting(false);
       return;
@@ -152,8 +190,8 @@ export function CreateTripVacancyModal({
     }
 
     const body: TripVacancyCreateRequest = {
-      destination_city: destinationCity.trim(),
-      destination_country: destinationCountry,
+      destination_city_id: selectedCityId as number,
+      destination_country_id: selectedCountryId as number,
       start_date: startDate,
       end_date: endDate,
       people_needed: peopleNeeded,
@@ -313,21 +351,31 @@ export function CreateTripVacancyModal({
                       color: "var(--text)",
                     }}
                   >
-                    City <span style={{ color: "var(--status-error)" }}>*</span>
+                    Country{" "}
+                    <span style={{ color: "var(--status-error)" }}>*</span>
                   </label>
-                  <input
-                    type="text"
+                  <select
                     className="input-field"
-                    value={destinationCity}
-                    onChange={(e) => setDestinationCity(e.target.value)}
-                    placeholder="e.g. Almaty"
+                    value={selectedCountryId}
+                    onChange={(e) => {
+                      const id = e.target.value ? Number(e.target.value) : "";
+                      setSelectedCountryId(id);
+                      setSelectedCityId("");
+                    }}
                     required
                     style={{
                       padding: "12px 16px",
                       fontSize: "0.9375rem",
                       borderRadius: 8,
                     }}
-                  />
+                  >
+                    <option value="">Select country</option>
+                    {countries.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="input-wrap">
                   <label
@@ -339,23 +387,33 @@ export function CreateTripVacancyModal({
                       color: "var(--text)",
                     }}
                   >
-                    Country{" "}
-                    <span style={{ color: "var(--status-error)" }}>*</span>
+                    City <span style={{ color: "var(--status-error)" }}>*</span>
                   </label>
                   <select
                     className="input-field"
-                    value={destinationCountry}
-                    onChange={(e) => setDestinationCountry(e.target.value)}
+                    value={selectedCityId}
+                    onChange={(e) => {
+                      const id = e.target.value ? Number(e.target.value) : "";
+                      setSelectedCityId(id);
+                    }}
                     required
+                    disabled={!selectedCountryId || citiesLoading}
                     style={{
                       padding: "12px 16px",
                       fontSize: "0.9375rem",
                       borderRadius: 8,
                     }}
                   >
-                    {COUNTRIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
+                    <option value="">
+                      {citiesLoading
+                        ? "Loading cities..."
+                        : !selectedCountryId
+                          ? "Select a country first"
+                          : "Select city"}
+                    </option>
+                    {cities.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
                       </option>
                     ))}
                   </select>
